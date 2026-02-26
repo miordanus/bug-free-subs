@@ -1,0 +1,244 @@
+"use client"
+
+import { useState } from "react"
+import { Subscription, Currency, BillingCycle, Owner } from "@/types/subscription"
+
+type Props = {
+  initial: Subscription | null
+  onSave: (sub: Subscription) => void
+  onClose: () => void
+}
+
+type FormState = {
+  name: string
+  amount: string
+  currency: Currency
+  billingCycle: BillingCycle
+  nextChargeDate: string
+  category: string
+  card: string
+  owner: Owner
+}
+
+type FormErrors = Partial<Record<keyof FormState, string>>
+
+const INPUT =
+  "w-full bg-[#0A0A0A] border border-[#2A2A2A] text-white px-3 py-3 rounded-lg text-sm focus:outline-none focus:border-[#00FF85] transition-colors font-mono placeholder:text-[#333] appearance-none"
+const LABEL =
+  "block text-[10px] text-[#555] mb-1.5 uppercase tracking-widest font-mono"
+
+export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
+  const today = new Date().toISOString().split("T")[0]
+
+  const [form, setForm] = useState<FormState>({
+    name: initial?.name ?? "",
+    amount: initial?.amount.toString() ?? "",
+    currency: initial?.currency ?? "EUR",
+    billingCycle: initial?.billingCycle ?? "monthly",
+    nextChargeDate: initial?.nextChargeDate ?? today,
+    category: initial?.category ?? "",
+    card: initial?.card ?? "",
+    owner: initial?.owner ?? "me",
+  })
+
+  const [errors, setErrors] = useState<FormErrors>({})
+
+  function validate(): boolean {
+    const e: FormErrors = {}
+    if (!form.name.trim()) e.name = "Name is required"
+    if (!form.amount || parseFloat(form.amount) <= 0)
+      e.amount = "Must be > 0"
+    if (!form.nextChargeDate) e.nextChargeDate = "Date is required"
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!validate()) return
+    const sub: Subscription = {
+      id: initial?.id ?? crypto.randomUUID(),
+      name: form.name.trim(),
+      amount: parseFloat(form.amount),
+      currency: form.currency,
+      billingCycle: form.billingCycle,
+      nextChargeDate: form.nextChargeDate,
+      category: form.category.trim(),
+      card: form.card.trim(),
+      owner: form.owner,
+    }
+    onSave(sub)
+  }
+
+  function set<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/75 z-50 flex items-end sm:items-center justify-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="bg-[#111111] border border-[#1F1F1F] rounded-t-2xl sm:rounded-xl w-full max-w-md max-h-[92dvh] overflow-y-auto">
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F1F] sticky top-0 bg-[#111111] z-10">
+          <h2 className="text-sm font-bold tracking-tight">
+            {initial ? "Edit Subscription" : "Add Subscription"}
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="text-[#555] hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg border border-[#222] text-xs"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Name */}
+          <div>
+            <label className={LABEL}>Name</label>
+            <input
+              type="text"
+              className={INPUT}
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+              placeholder="Netflix"
+              autoFocus
+            />
+            {errors.name && (
+              <p className="text-red-400 text-xs mt-1 font-mono">{errors.name}</p>
+            )}
+          </div>
+
+          {/* Amount + Currency */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={LABEL}>Amount</label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                className={INPUT}
+                value={form.amount}
+                onChange={(e) => set("amount", e.target.value)}
+                placeholder="9.99"
+              />
+              {errors.amount && (
+                <p className="text-red-400 text-xs mt-1 font-mono">
+                  {errors.amount}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className={LABEL}>Currency</label>
+              <select
+                className={INPUT}
+                value={form.currency}
+                onChange={(e) => set("currency", e.target.value as Currency)}
+              >
+                <option value="EUR">EUR — €</option>
+                <option value="USD">USD — $</option>
+                <option value="RUB">RUB — ₽</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Billing Cycle */}
+          <div>
+            <label className={LABEL}>Billing Cycle</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["monthly", "yearly"] as const).map((cycle) => (
+                <button
+                  key={cycle}
+                  type="button"
+                  onClick={() => set("billingCycle", cycle)}
+                  className={`py-3 text-xs font-mono uppercase tracking-wider rounded-lg border transition-colors ${
+                    form.billingCycle === cycle
+                      ? "bg-[#00FF85] text-black border-[#00FF85]"
+                      : "bg-[#0A0A0A] text-[#555] border-[#2A2A2A] hover:border-[#444]"
+                  }`}
+                >
+                  {cycle}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Next Charge Date */}
+          <div>
+            <label className={LABEL}>Next Charge Date</label>
+            <input
+              type="date"
+              className={INPUT}
+              value={form.nextChargeDate}
+              onChange={(e) => set("nextChargeDate", e.target.value)}
+            />
+            {errors.nextChargeDate && (
+              <p className="text-red-400 text-xs mt-1 font-mono">
+                {errors.nextChargeDate}
+              </p>
+            )}
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className={LABEL}>Category</label>
+            <input
+              type="text"
+              className={INPUT}
+              value={form.category}
+              onChange={(e) => set("category", e.target.value)}
+              placeholder="Entertainment"
+            />
+          </div>
+
+          {/* Card */}
+          <div>
+            <label className={LABEL}>Card</label>
+            <input
+              type="text"
+              className={INPUT}
+              value={form.card}
+              onChange={(e) => set("card", e.target.value)}
+              placeholder="Visa *4242"
+            />
+          </div>
+
+          {/* Owner */}
+          <div>
+            <label className={LABEL}>Owner</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["me", "wife"] as const).map((owner) => (
+                <button
+                  key={owner}
+                  type="button"
+                  onClick={() => set("owner", owner)}
+                  className={`py-3 text-xs font-mono uppercase tracking-wider rounded-lg border transition-colors ${
+                    form.owner === owner
+                      ? owner === "me"
+                        ? "bg-white text-black border-white"
+                        : "bg-[#FF6B9D] text-black border-[#FF6B9D]"
+                      : "bg-[#0A0A0A] text-[#555] border-[#2A2A2A] hover:border-[#444]"
+                  }`}
+                >
+                  {owner === "me" ? "Me" : "Wife"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            className="w-full bg-[#00FF85] text-black font-bold text-sm uppercase tracking-wider py-4 rounded-xl mt-2 active:scale-[0.98] transition-transform"
+          >
+            {initial ? "Save Changes" : "Add Subscription"}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
