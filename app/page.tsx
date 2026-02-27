@@ -3,11 +3,19 @@
 import { useState, useEffect } from "react"
 import { Subscription } from "@/types/subscription"
 import { loadSubs } from "@/lib/storage"
-import { isTelegramWebApp, getTelegramInitData, callTelegramReady } from "@/lib/telegram"
+import { callTelegramReady, getTelegramInitData } from "@/lib/telegram"
 import BurnSummary from "@/components/BurnSummary"
 import UpcomingList from "@/components/UpcomingList"
 import SubscriptionList from "@/components/SubscriptionList"
 import SubscriptionForm from "@/components/SubscriptionForm"
+
+type AuthStatus =
+  | "checking"
+  | "authed"
+  | "no_initdata"
+  | "invalid_initdata"
+  | "not_in_household"
+  | "error"
 
 type TgProfile = {
   telegram_user_id: number
@@ -16,25 +24,42 @@ type TgProfile = {
   last_name: string | null
 }
 
+type TgWindow = Window & { Telegram?: { WebApp?: unknown } }
+
+/**
+ * Detect Telegram Mini App environment independently from auth.
+ * True if window.Telegram.WebApp exists OR URL carries tgWebApp* params.
+ * Telegram Desktop may inject only URL params, not the JS object.
+ */
+function detectTelegramEnv(): boolean {
+  if (typeof window === "undefined") return false
+  if ((window as TgWindow).Telegram?.WebApp) return true
+  const p = new URLSearchParams(window.location.search)
+  return p.has("tgWebAppPlatform") || p.has("tgWebAppVersion")
+}
+
+const BOT_USERNAME = "subsion_bot"
+
 export default function Home() {
   const [subs, setSubs] = useState<Subscription[]>([])
   const [mounted, setMounted] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Subscription | null>(null)
   const [monthLabel, setMonthLabel] = useState("")
   const [isDark, setIsDark] = useState(true)
 
-  // null = not yet checked (pre-mount), false = not in Telegram, string = initData
-  const [tgInitData, setTgInitData] = useState<string | false | null>(null)
+  // null = pre-mount (not yet detected), true/false = result of detectTelegramEnv()
+  const [isTgEnv, setIsTgEnv] = useState<boolean | null>(null)
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("checking")
   const [tgProfile, setTgProfile] = useState<TgProfile | null>(null)
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [householdName, setHouseholdName] = useState<string | null>(null)
 
-  // true when we're inside Telegram but initData failed server-side validation
-  const [tgAuthFailed, setTgAuthFailed] = useState(false)
+  // Debug state
+  const [initDataLength, setInitDataLength] = useState<number | null>(null)
+  const [lastAuthHttpStatus, setLastAuthHttpStatus] = useState<number | null>(null)
 
-  // Whether localStorage has existing subs available to import
+  // localStorage import
   const [localImportReady, setLocalImportReady] = useState(false)
   const [importing, setImporting] = useState(false)
 
@@ -46,38 +71,37 @@ export default function Home() {
     const savedTheme = localStorage.getItem("theme")
     setIsDark(savedTheme !== "light")
 
-    if (!isTelegramWebApp()) {
-      setTgInitData(false)
-      setLoading(false)
-      return
-    }
+    // A) Telegram environment detection — independent from auth
+    const tgEnv = detectTelegramEnv()
+    setIsTgEnv(tgEnv)
+
+    if (!tgEnv) return // gate will render based on isTgEnv=false
 
     callTelegramReady()
     const initData = getTelegramInitData()
-    localStorage.setItem("tg_initData_v1", initData)
-    setTgInitData(initData)
+    setInitDataLength(initData.length)
 
-    // Check localStorage for importable legacy data
-    const localSubs = loadSubs()
-    if (localSubs.length > 0) {
-      setLocalImportReady(true)
+    // B) Empty initData — Telegram Desktop reality
+    if (initData === "") {
+      setAuthStatus("no_initdata")
+      return
     }
 
-    // Phase 2 → 6: validate initData, resolve household, load subs
+    const localSubs = loadSubs()
+    if (localSubs.length > 0) setLocalImportReady(true)
+
+    // B) Non-empty initData — validate server-side
     ;(async () => {
       try {
-        // 1. Validate initData server-side
         const authRes = await fetch("/api/auth/telegram", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ initData }),
         })
+        setLastAuthHttpStatus(authRes.status)
 
         if (!authRes.ok) {
-          // We ARE in Telegram — don't touch tgInitData (that would trigger the gate).
-          // Show a dedicated auth-failure screen instead.
-          setTgAuthFailed(true)
-          setLoading(false)
+          setAuthStatus("invalid_initdata")
           return
         }
 
@@ -85,27 +109,28 @@ export default function Home() {
         setTgProfile(profile)
         const uid = profile.telegram_user_id
 
-        // 2. Resolve household
+        // C) Household resolution
         const meRes = await fetch("/api/me", {
           headers: { "x-telegram-user-id": String(uid) },
         })
-        if (meRes.ok) {
-          const meData = await meRes.json()
-          setHouseholdId(meData.household_id)
-          setHouseholdName(meData.household_name)
+        if (!meRes.ok) {
+          setAuthStatus("not_in_household")
+          return
         }
+        const meData = await meRes.json()
+        setHouseholdId(meData.household_id)
+        setHouseholdName(meData.household_name)
 
-        // 3. Load subscriptions from Supabase
+        // Load subscriptions
         const subsRes = await fetch("/api/subscriptions", {
           headers: { "x-telegram-user-id": String(uid) },
         })
-        if (subsRes.ok) {
-          setSubs(await subsRes.json())
-        }
+        if (subsRes.ok) setSubs(await subsRes.json())
+
+        setAuthStatus("authed")
       } catch (err) {
         console.error("Telegram init failed:", err)
-      } finally {
-        setLoading(false)
+        setAuthStatus("error")
       }
     })()
   }, [])
@@ -135,7 +160,6 @@ export default function Home() {
           setSubs((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
         }
       } else {
-        // Strip client-generated id; server assigns its own
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id: _ignored, ...payload } = sub
         const res = await fetch("/api/subscriptions", {
@@ -189,13 +213,10 @@ export default function Home() {
           body: JSON.stringify(payload),
         })
       }
-      // Reload from server after import
       const subsRes = await fetch("/api/subscriptions", {
         headers: { "x-telegram-user-id": String(tgProfile.telegram_user_id) },
       })
-      if (subsRes.ok) {
-        setSubs(await subsRes.json())
-      }
+      if (subsRes.ok) setSubs(await subsRes.json())
       setLocalImportReady(false)
       if (confirm(`Imported ${localSubs.length} subscription(s). Clear localStorage data?`)) {
         localStorage.removeItem("subs_v2")
@@ -240,47 +261,139 @@ export default function Home() {
     URL.revokeObjectURL(url)
   }
 
-  function handleAdd() {
-    setEditing(null)
-    setModalOpen(true)
-  }
+  function handleAdd() { setEditing(null); setModalOpen(true) }
+  function handleEdit(sub: Subscription) { setEditing(sub); setModalOpen(true) }
+  function handleClose() { setModalOpen(false); setEditing(null) }
 
-  function handleEdit(sub: Subscription) {
-    setEditing(sub)
-    setModalOpen(true)
-  }
+  // ── Debug footer ──────────────────────────────────────────────────────────────
 
-  function handleClose() {
-    setModalOpen(false)
-    setEditing(null)
-  }
+  const debugFooter = (
+    <div className="text-center text-[10px] font-mono text-[#333] pb-2 pt-6 space-y-0.5">
+      <p>
+        env:{isTgEnv === null ? "?" : isTgEnv ? "tg" : "web"}
+        {" · "}initData:{initDataLength ?? "?"}
+        {" · "}auth:{authStatus}
+        {" · "}http:{lastAuthHttpStatus ?? "-"}
+      </p>
+      {(householdName ?? householdId) && (
+        <p>Household: {householdName ?? householdId}</p>
+      )}
+    </div>
+  )
 
-  // ── Gate: block non-Telegram access ──────────────────────────────────────────
-  // Only fires when window.Telegram.WebApp was absent at mount — never on auth failure.
+  // ── D) Loading: pre-mount or env not yet detected ─────────────────────────────
 
-  if (mounted && tgInitData === false) {
+  if (!mounted || isTgEnv === null) {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center">
-        <p className="text-sm font-mono text-[#555] text-center px-8">
-          Open this app from Telegram: @subsion_bot
-        </p>
+        <p className="text-sm font-mono text-[#555]">Loading…</p>
       </div>
     )
   }
 
-  // ── Auth failure (inside Telegram but session invalid) ────────────────────────
+  // ── A) Gate: not in Telegram environment ──────────────────────────────────────
 
-  if (mounted && !loading && tgAuthFailed) {
+  if (!isTgEnv) {
     return (
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2">
         <p className="text-sm font-mono text-[#555] text-center px-8">
-          Session expired — please close and reopen from @subsion_bot
+          Open this app from Telegram: @{BOT_USERNAME}
         </p>
+        {debugFooter}
       </div>
     )
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── D) Auth in progress ───────────────────────────────────────────────────────
+
+  if (authStatus === "checking") {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2">
+        <p className="text-sm font-mono text-[#555]">Authenticating…</p>
+        {debugFooter}
+      </div>
+    )
+  }
+
+  // ── B) no_initdata — Telegram Desktop without initData ────────────────────────
+
+  if (authStatus === "no_initdata") {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8">
+        <p className="text-sm font-mono text-[#888] text-center leading-relaxed">
+          Telegram Desktop may not provide initData.
+          <br />
+          Use mobile Telegram OR link your account via bot.
+        </p>
+        <a
+          href={`https://t.me/${BOT_USERNAME}?start=link`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-mono text-black bg-[#00FF85] px-4 py-2 rounded-lg"
+        >
+          Link via bot
+        </a>
+        {debugFooter}
+      </div>
+    )
+  }
+
+  // ── B) invalid_initdata — hash mismatch / session expired ─────────────────────
+
+  if (authStatus === "invalid_initdata") {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8">
+        <p className="text-sm font-mono text-[#888] text-center">
+          Session expired. Reopen from bot.
+        </p>
+        <a
+          href={`https://t.me/${BOT_USERNAME}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-mono text-black bg-[#00FF85] px-4 py-2 rounded-lg"
+        >
+          Open @{BOT_USERNAME}
+        </a>
+        {debugFooter}
+      </div>
+    )
+  }
+
+  // ── C) not_in_household — authenticated but no household membership ────────────
+
+  if (authStatus === "not_in_household") {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8">
+        <p className="text-sm font-mono text-[#888] text-center leading-relaxed">
+          Your account is not linked to a household.
+          <br />
+          Share your Telegram user ID with an admin.
+        </p>
+        {tgProfile && (
+          <p className="text-xs font-mono text-[#555] text-center">
+            Your ID:{" "}
+            <span className="text-[#888] select-all">{tgProfile.telegram_user_id}</span>
+          </p>
+        )}
+        {debugFooter}
+      </div>
+    )
+  }
+
+  // ── Generic error ─────────────────────────────────────────────────────────────
+
+  if (authStatus === "error") {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2 px-8">
+        <p className="text-sm font-mono text-[#555] text-center">
+          Something went wrong. Please close and reopen the app.
+        </p>
+        {debugFooter}
+      </div>
+    )
+  }
+
+  // ── C/D) Main app — authStatus === "authed" ───────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] pb-28">
@@ -294,15 +407,13 @@ export default function Home() {
             </p>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            {mounted && (
-              <button
-                onClick={exportCSV}
-                disabled={subs.length === 0}
-                className="text-xs font-mono text-[#555] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:border-[#444] transition-colors disabled:opacity-30"
-              >
-                Export CSV
-              </button>
-            )}
+            <button
+              onClick={exportCSV}
+              disabled={subs.length === 0}
+              className="text-xs font-mono text-[#555] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:border-[#444] transition-colors disabled:opacity-30"
+            >
+              Export CSV
+            </button>
             <button
               onClick={toggleTheme}
               aria-label="Toggle theme"
@@ -316,43 +427,27 @@ export default function Home() {
 
       {/* Content */}
       <main className="px-4 space-y-3 max-w-xl mx-auto">
-        {mounted && !loading ? (
-          <>
-            {/* Import from localStorage banner */}
-            {localImportReady && (
-              <div className="border border-[var(--border)] rounded-lg p-3 flex items-center justify-between gap-3">
-                <p className="text-xs font-mono text-[#888]">
-                  Found local data — import into Supabase?
-                </p>
-                <button
-                  onClick={handleImport}
-                  disabled={importing}
-                  className="text-xs font-mono text-black bg-[#00FF85] px-3 py-1.5 rounded-lg disabled:opacity-50 shrink-0"
-                >
-                  {importing ? "Importing…" : "Import"}
-                </button>
-              </div>
-            )}
-            <BurnSummary subs={subs} />
-            <UpcomingList subs={subs} />
-            <SubscriptionList
-              subs={subs}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          </>
-        ) : (
-          // Skeleton while loading
-          <div className="space-y-3">
-            {[120, 280, 200].map((h, i) => (
-              <div
-                key={i}
-                className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg animate-pulse"
-                style={{ height: h }}
-              />
-            ))}
+        {localImportReady && (
+          <div className="border border-[var(--border)] rounded-lg p-3 flex items-center justify-between gap-3">
+            <p className="text-xs font-mono text-[#888]">
+              Found local data — import into Supabase?
+            </p>
+            <button
+              onClick={handleImport}
+              disabled={importing}
+              className="text-xs font-mono text-black bg-[#00FF85] px-3 py-1.5 rounded-lg disabled:opacity-50 shrink-0"
+            >
+              {importing ? "Importing…" : "Import"}
+            </button>
           </div>
         )}
+        <BurnSummary subs={subs} />
+        <UpcomingList subs={subs} />
+        <SubscriptionList
+          subs={subs}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
       </main>
 
       {/* FAB */}
@@ -374,14 +469,7 @@ export default function Home() {
       )}
 
       {/* Debug footer */}
-      {typeof tgInitData === "string" && (
-        <div className="text-center text-[10px] font-mono text-[#333] pb-2 space-y-0.5">
-          <p>TG connected – initData: {tgInitData.length} chars</p>
-          {(householdName ?? householdId) && (
-            <p>Household: {householdName ?? householdId}</p>
-          )}
-        </div>
-      )}
+      {debugFooter}
     </div>
   )
 }
