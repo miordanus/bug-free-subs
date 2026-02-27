@@ -315,9 +315,9 @@ export default function Home() {
   const urlSearchHasTg = new URLSearchParams(location.search).has("tgWebAppData")
   const urlHashHasTg = new URLSearchParams(location.hash.slice(1)).has("tgWebAppData")
   const debugFooter = (
-    <div className="fixed bottom-0 left-0 right-0 z-50">
+    <>
       {showDebug && (
-        <div className="bg-[var(--bg-card)] border-t border-[var(--border)] px-2 py-1.5 space-y-0.5">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] border-t border-[var(--border)] px-2 pt-1.5 pb-6 space-y-0.5">
           <p className="text-[9px] font-mono text-[var(--text-muted)] break-all">
             env:{envState}
             {" · "}hasWindow:true
@@ -340,18 +340,14 @@ export default function Home() {
           <p className="text-[9px] font-mono text-[var(--text-muted)] opacity-60 break-all">ua:{navigator.userAgent.slice(0, 80)}</p>
         </div>
       )}
-      <div
-        className="flex justify-end bg-[var(--bg-page)] border-t border-[var(--border)] px-2 py-0.5"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      <button
+        onClick={() => setShowDebug((v) => !v)}
+        className="fixed left-3 z-[51] text-[9px] font-mono text-[var(--text-muted)] opacity-40 hover:opacity-70 transition-opacity px-1 py-0.5"
+        style={{ bottom: "max(0.25rem, env(safe-area-inset-bottom, 0.25rem))" }}
       >
-        <button
-          onClick={() => setShowDebug((v) => !v)}
-          className="text-[9px] font-mono text-[var(--text-muted)] opacity-50 hover:opacity-80 transition-opacity"
-        >
-          {showDebug ? "▼ dbg" : "▲ dbg"}
-        </button>
-      </div>
-    </div>
+        {showDebug ? "▼ dbg" : "▲ dbg"}
+      </button>
+    </>
   )
 
   // ── Retry loop still running ──────────────────────────────────────────────────
