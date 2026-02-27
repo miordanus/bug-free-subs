@@ -5,7 +5,7 @@ import { Subscription, Currency, BillingCycle, Owner } from "@/types/subscriptio
 
 type Props = {
   initial: Subscription | null
-  onSave: (sub: Subscription) => void
+  onSave: (sub: Subscription) => Promise<string | null>
   onClose: () => void
 }
 
@@ -42,6 +42,8 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   function validate(): boolean {
     const e: FormErrors = {}
@@ -53,7 +55,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
     return Object.keys(e).length === 0
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
     const sub: Subscription = {
@@ -67,7 +69,13 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
       card: form.card.trim(),
       owner: form.owner,
     }
-    onSave(sub)
+    setSaving(true)
+    setSaveError(null)
+    const err = await onSave(sub)
+    // If null, page.tsx closed the modal already (component unmounting — safe no-op).
+    // If error string, re-enable form and show message.
+    setSaving(false)
+    if (err) setSaveError(err)
   }
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -230,12 +238,20 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
             </div>
           </div>
 
+          {/* Save error */}
+          {saveError && (
+            <p className="text-red-400 text-xs font-mono text-center px-3 py-2 bg-red-950/30 rounded-lg">
+              {saveError}
+            </p>
+          )}
+
           {/* Submit */}
           <button
             type="submit"
-            className="w-full bg-[#00FF85] text-black font-bold text-sm uppercase tracking-wider py-4 rounded-xl mt-2 active:scale-[0.98] transition-transform"
+            disabled={saving}
+            className="w-full bg-[#00FF85] text-black font-bold text-sm uppercase tracking-wider py-4 rounded-xl mt-2 active:scale-[0.98] transition-transform disabled:opacity-50"
           >
-            {initial ? "Save Changes" : "Add Subscription"}
+            {saving ? "Saving…" : initial ? "Save Changes" : "Add Subscription"}
           </button>
         </form>
       </div>

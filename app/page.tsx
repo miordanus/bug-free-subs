@@ -157,20 +157,27 @@ export default function Home() {
 
   // ── CRUD handlers ────────────────────────────────────────────────────────────
 
-  async function handleSave(sub: Subscription) {
-    if (!tgProfile) return
+  // Returns null on success, error string on failure.
+  // The form awaits this and shows the error inline; modal only closes on success.
+  async function handleSave(sub: Subscription): Promise<string | null> {
+    if (!tgProfile) return "Not authenticated — please reload"
     try {
       if (editing) {
+        console.log("[handleSave] PATCH", sub.id, "uid", tgProfile.telegram_user_id)
         const res = await fetch(`/api/subscriptions/${sub.id}`, {
           method: "PATCH",
           headers: apiHeaders(),
           body: JSON.stringify(sub),
         })
-        if (res.ok) {
-          const updated: Subscription = await res.json()
-          setSubs((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+        console.log("[handleSave] PATCH response", res.status)
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          return `Save failed (${res.status})${body.error ? `: ${body.error}` : ""}`
         }
+        const updated: Subscription = await res.json()
+        setSubs((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
       } else {
+        console.log("[handleSave] POST uid", tgProfile.telegram_user_id)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id: _ignored, ...payload } = sub
         const res = await fetch("/api/subscriptions", {
@@ -178,16 +185,22 @@ export default function Home() {
           headers: apiHeaders(),
           body: JSON.stringify(payload),
         })
-        if (res.ok) {
-          const created: Subscription = await res.json()
-          setSubs((prev) => [...prev, created])
+        console.log("[handleSave] POST response", res.status)
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          return `Save failed (${res.status})${body.error ? `: ${body.error}` : ""}`
         }
+        const created: Subscription = await res.json()
+        setSubs((prev) => [...prev, created])
       }
     } catch (err) {
-      console.error("Save failed:", err)
+      console.error("[handleSave] network error:", err)
+      return "Network error — please try again"
     }
+    // Only close on success
     setModalOpen(false)
     setEditing(null)
+    return null
   }
 
   async function handleDelete(id: string) {
