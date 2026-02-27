@@ -106,7 +106,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4" style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))" }}>
           {/* Name */}
           <div>
             <label className={LABEL}>Name</label>
