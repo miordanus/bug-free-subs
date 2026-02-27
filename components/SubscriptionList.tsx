@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Subscription, Owner } from "@/types/subscription"
 import { CURRENCY_SYMBOL } from "@/lib/calculations"
 
@@ -24,15 +25,35 @@ function OwnerBadge({ owner }: { owner: Owner }) {
 }
 
 export default function SubscriptionList({ subs, onEdit, onDelete }: Props) {
+  const [open, setOpen] = useState(false)
+
   return (
     <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg overflow-hidden">
-      <div className="px-5 pt-5 pb-3">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-5 pt-5 pb-3 flex items-center justify-between"
+      >
         <p className="text-xs text-[#555] uppercase tracking-widest font-mono">
           All Subscriptions
           <span className="ml-2 text-[#333]">({subs.length})</span>
         </p>
-      </div>
+        <svg
+          className={`w-3 h-3 text-[#555] transition-transform duration-300 shrink-0 ${open ? "rotate-180" : ""}`}
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="2,4 6,8 10,4" />
+        </svg>
+      </button>
 
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
+        <div className="overflow-hidden">
       {subs.length === 0 ? (
         <div className="px-5 pb-5">
           <p className="text-[#444] text-sm font-mono">
@@ -92,6 +113,8 @@ export default function SubscriptionList({ subs, onEdit, onDelete }: Props) {
           ))}
         </div>
       )}
+        </div>
+      </div>
     </div>
   )
 }

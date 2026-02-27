@@ -307,8 +307,8 @@ export default function Home() {
   const debugFooter = (
     <div className="fixed bottom-0 left-0 right-0 z-50">
       {showDebug && (
-        <div className="bg-[#0A0A0A]/95 border-t border-[#1F1F1F] px-2 py-1.5 space-y-0.5">
-          <p className="text-[9px] font-mono text-[#444] break-all">
+        <div className="bg-[var(--bg-card)] border-t border-[var(--border)] px-2 py-1.5 space-y-0.5">
+          <p className="text-[9px] font-mono text-[var(--text-muted)] break-all">
             env:{envState}
             {" · "}hasWindow:true
             {" · "}hasTg:{String(!!w.Telegram)}
@@ -316,7 +316,7 @@ export default function Home() {
             {" · "}hasProxy:{String(!!w.TelegramWebviewProxy)}
             {" · "}webAppInitDataLen:{w.Telegram?.WebApp?.initData?.length ?? 0}
           </p>
-          <p className="text-[9px] font-mono text-[#444] break-all">
+          <p className="text-[9px] font-mono text-[var(--text-muted)] break-all">
             urlSearch:{String(urlSearchHasTg)}
             {" · "}urlHash:{String(urlHashHasTg)}
             {" · "}usedInitDataLen:{initDataLength ?? "?"}
@@ -324,16 +324,19 @@ export default function Home() {
             {" · "}http:{lastAuthHttpStatus ?? "-"}
             {(householdName ?? householdId) ? ` · hh:${householdName ?? householdId}` : ""}
           </p>
-          <p className="text-[9px] font-mono text-[#3a3a3a] break-all">href:{location.href.slice(0, 120)}</p>
-          <p className="text-[9px] font-mono text-[#3a3a3a] break-all">search:{location.search.slice(0, 120) || "(empty)"}</p>
-          <p className="text-[9px] font-mono text-[#3a3a3a] break-all">hash:{location.hash.slice(0, 120) || "(empty)"}</p>
-          <p className="text-[9px] font-mono text-[#3a3a3a] break-all">ua:{navigator.userAgent.slice(0, 80)}</p>
+          <p className="text-[9px] font-mono text-[var(--text-muted)] opacity-60 break-all">href:{location.href.slice(0, 120)}</p>
+          <p className="text-[9px] font-mono text-[var(--text-muted)] opacity-60 break-all">search:{location.search.slice(0, 120) || "(empty)"}</p>
+          <p className="text-[9px] font-mono text-[var(--text-muted)] opacity-60 break-all">hash:{location.hash.slice(0, 120) || "(empty)"}</p>
+          <p className="text-[9px] font-mono text-[var(--text-muted)] opacity-60 break-all">ua:{navigator.userAgent.slice(0, 80)}</p>
         </div>
       )}
-      <div className="flex justify-end bg-[#0A0A0A]/80 border-t border-[#1a1a1a] px-2 py-0.5">
+      <div
+        className="flex justify-end bg-[var(--bg-page)] border-t border-[var(--border)] px-2 py-0.5"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
         <button
           onClick={() => setShowDebug((v) => !v)}
-          className="text-[9px] font-mono text-[#333] hover:text-[#555] transition-colors"
+          className="text-[9px] font-mono text-[var(--text-muted)] opacity-50 hover:opacity-80 transition-opacity"
         >
           {showDebug ? "▼ dbg" : "▲ dbg"}
         </button>
@@ -460,7 +463,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] pb-28">
       {/* Header */}
-      <header className="px-4 pt-12 pb-6 max-w-xl mx-auto">
+      <header className="px-4 pb-6 max-w-xl mx-auto" style={{ paddingTop: "max(3rem, env(safe-area-inset-top, 3rem))" }}>
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Subscriptions</h1>
@@ -516,7 +519,8 @@ export default function Home() {
       <button
         onClick={handleAdd}
         aria-label="Add subscription"
-        className="fixed bottom-6 right-6 bg-[#00FF85] text-black font-bold text-sm uppercase tracking-wider px-6 py-4 rounded-xl z-40 active:scale-95 transition-transform shadow-none min-w-[100px]"
+        className="fixed right-6 bg-[#00FF85] text-black font-bold text-sm uppercase tracking-wider px-6 py-4 rounded-xl z-40 active:scale-95 transition-transform shadow-none min-w-[100px]"
+        style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom, 1.5rem))" }}
       >
         + Add
       </button>
