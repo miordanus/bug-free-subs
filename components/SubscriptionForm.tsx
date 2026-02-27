@@ -38,7 +38,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
     nextChargeDate: initial?.nextChargeDate ?? today,
     category: initial?.category ?? "",
     card: initial?.card ?? "",
-    owner: initial?.owner ?? "max",
+    owner: initial?.owner ?? "me",
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
@@ -51,6 +51,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
     if (!form.amount || parseFloat(form.amount) <= 0)
       e.amount = "Must be > 0"
     if (!form.nextChargeDate) e.nextChargeDate = "Date is required"
+    if (form.owner !== "me" && form.owner !== "wife") e.owner = "Select an owner"
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -69,6 +70,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
       card: form.card.trim(),
       owner: form.owner,
     }
+    console.log("Saving owner:", sub.owner)
     setSaving(true)
     setSaveError(null)
     const err = await onSave(sub)
@@ -219,23 +221,26 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
           <div>
             <label className={LABEL}>Owner</label>
             <div className="grid grid-cols-2 gap-2">
-              {(["max", "molly"] as const).map((owner) => (
+              {([{ label: "Max", value: "me" }, { label: "Molly", value: "wife" }] as const).map(({ label, value }) => (
                 <button
-                  key={owner}
+                  key={value}
                   type="button"
-                  onClick={() => set("owner", owner)}
+                  onClick={() => set("owner", value)}
                   className={`py-3 text-xs font-mono uppercase tracking-wider rounded-lg border transition-colors ${
-                    form.owner === owner
-                      ? owner === "max"
+                    form.owner === value
+                      ? value === "me"
                         ? "bg-white text-black border-white"
                         : "bg-[#FF6B9D] text-black border-[#FF6B9D]"
                       : "bg-[var(--bg-page)] text-[#555] border-[var(--input-border)] hover:border-[#444]"
                   }`}
                 >
-                  {owner === "max" ? "Max" : "Molly"}
+                  {label}
                 </button>
               ))}
             </div>
+            {errors.owner && (
+              <p className="text-red-400 text-xs mt-1 font-mono">{errors.owner}</p>
+            )}
           </div>
 
           {/* Save error */}
