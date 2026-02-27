@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Subscription } from "@/types/subscription"
 import { loadSubs } from "@/lib/storage"
-import { callTelegramReady, getTelegramInitData } from "@/lib/telegram"
+import { detectTelegramEnv, callTelegramReady, getTelegramInitData } from "@/lib/telegram"
 import BurnSummary from "@/components/BurnSummary"
 import UpcomingList from "@/components/UpcomingList"
 import SubscriptionList from "@/components/SubscriptionList"
@@ -17,6 +17,8 @@ type AuthStatus =
   | "not_in_household"
   | "error"
 
+type EnvState = "checking" | "telegram" | "web"
+
 type TgProfile = {
   telegram_user_id: number
   username: string | null
@@ -24,21 +26,9 @@ type TgProfile = {
   last_name: string | null
 }
 
-type TgWindow = Window & { Telegram?: { WebApp?: unknown } }
-
-/**
- * Detect Telegram Mini App environment independently from auth.
- * True if window.Telegram.WebApp exists OR URL carries tgWebApp* params.
- * Telegram Desktop may inject only URL params, not the JS object.
- */
-function detectTelegramEnv(): boolean {
-  if (typeof window === "undefined") return false
-  if ((window as TgWindow).Telegram?.WebApp) return true
-  const p = new URLSearchParams(window.location.search)
-  return p.has("tgWebAppPlatform") || p.has("tgWebAppVersion")
-}
-
 const BOT_USERNAME = "subsion_bot"
+const ENV_MAX_RETRIES = 10
+const ENV_RETRY_MS = 200
 
 export default function Home() {
   const [subs, setSubs] = useState<Subscription[]>([])
@@ -48,8 +38,8 @@ export default function Home() {
   const [monthLabel, setMonthLabel] = useState("")
   const [isDark, setIsDark] = useState(true)
 
-  // null = pre-mount (not yet detected), true/false = result of detectTelegramEnv()
-  const [isTgEnv, setIsTgEnv] = useState<boolean | null>(null)
+  // "checking" until retry loop resolves; once "telegram", never downgrades to "web"
+  const [envState, setEnvState] = useState<EnvState>("checking")
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking")
   const [tgProfile, setTgProfile] = useState<TgProfile | null>(null)
   const [householdId, setHouseholdId] = useState<string | null>(null)
@@ -63,9 +53,6 @@ export default function Home() {
   const [localImportReady, setLocalImportReady] = useState(false)
   const [importing, setImporting] = useState(false)
 
-  // Gate is held for 2 s to avoid flicker when Telegram env is slow to inject
-  const [gateReady, setGateReady] = useState(false)
-
   useEffect(() => {
     setMounted(true)
     setMonthLabel(
@@ -74,31 +61,27 @@ export default function Home() {
     const savedTheme = localStorage.getItem("theme")
     setIsDark(savedTheme !== "light")
 
-    // A) Telegram environment detection — independent from auth
-    const tgEnv = detectTelegramEnv()
-    setIsTgEnv(tgEnv)
+    // A) Retry loop: poll for Telegram env up to ENV_MAX_RETRIES times.
+    //    Once "telegram" detected, never downgrade to "web".
+    let attempts = 0
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let authStarted = false
 
-    if (!tgEnv) {
-      // Delay gate by 2 s so Telegram env has time to inject its objects
-      const t = setTimeout(() => setGateReady(true), 2000)
-      return () => clearTimeout(t)
-    }
+    async function doAuth() {
+      callTelegramReady()
+      const initData = getTelegramInitData()
+      setInitDataLength(initData.length)
 
-    callTelegramReady()
-    const initData = getTelegramInitData()
-    setInitDataLength(initData.length)
+      // B) Empty initData — Telegram Desktop / proxy without initData yet
+      if (initData === "") {
+        setAuthStatus("no_initdata")
+        return
+      }
 
-    // B) Empty initData — Telegram Desktop reality
-    if (initData === "") {
-      setAuthStatus("no_initdata")
-      return
-    }
+      const localSubs = loadSubs()
+      if (localSubs.length > 0) setLocalImportReady(true)
 
-    const localSubs = loadSubs()
-    if (localSubs.length > 0) setLocalImportReady(true)
-
-    // B) Non-empty initData — validate server-side
-    ;(async () => {
+      // B) Non-empty initData — validate server-side
       try {
         const authRes = await fetch("/api/auth/telegram", {
           method: "POST",
@@ -139,7 +122,27 @@ export default function Home() {
         console.error("Telegram init failed:", err)
         setAuthStatus("error")
       }
-    })()
+    }
+
+    function tryDetect() {
+      attempts++
+      if (detectTelegramEnv()) {
+        setEnvState("telegram")
+        if (!authStarted) {
+          authStarted = true
+          doAuth()
+        }
+        return
+      }
+      if (attempts >= ENV_MAX_RETRIES) {
+        setEnvState("web")
+        return
+      }
+      timer = setTimeout(tryDetect, ENV_RETRY_MS)
+    }
+
+    tryDetect()
+    return () => { if (timer) clearTimeout(timer) }
   }, [])
 
   // ── API helpers ──────────────────────────────────────────────────────────────
@@ -272,10 +275,9 @@ export default function Home() {
   function handleEdit(sub: Subscription) { setEditing(sub); setModalOpen(true) }
   function handleClose() { setModalOpen(false); setEditing(null) }
 
-  // ── D) Loading: pre-mount or env not yet detected ─────────────────────────────
-  // (window not safely available here — no diagnostic footer)
+  // ── SSR guard — window not available before mount ────────────────────────────
 
-  if (!mounted || isTgEnv === null) {
+  if (!mounted) {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center">
         <p className="text-sm font-mono text-[#555]">Loading…</p>
@@ -283,42 +285,50 @@ export default function Home() {
     )
   }
 
-  // ── Debug footer — computed here so window access is always safe ──────────────
+  // ── Debug footer — window is always safe from here ────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = window as any
+  const urlSearchHasTg = new URLSearchParams(location.search).has("tgWebAppData")
+  const urlHashHasTg = new URLSearchParams(location.hash.slice(1)).has("tgWebAppData")
   const debugFooter = (
     <div className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95 border-t border-[#1F1F1F] px-2 py-1.5 z-50 space-y-0.5">
       <p className="text-[9px] font-mono text-[#444] break-all">
-        env:{isTgEnv ? "tg" : "web"}
+        env:{envState}
         {" · "}hasWindow:true
         {" · "}hasTg:{String(!!w.Telegram)}
         {" · "}hasWebApp:{String(!!w.Telegram?.WebApp)}
         {" · "}hasProxy:{String(!!w.TelegramWebviewProxy)}
-        {" · "}initDataLen:{w.Telegram?.WebApp?.initData?.length ?? 0}
+        {" · "}webAppInitDataLen:{w.Telegram?.WebApp?.initData?.length ?? 0}
       </p>
       <p className="text-[9px] font-mono text-[#444] break-all">
-        auth:{authStatus}
+        urlSearch:{String(urlSearchHasTg)}
+        {" · "}urlHash:{String(urlHashHasTg)}
+        {" · "}usedInitDataLen:{initDataLength ?? "?"}
+        {" · "}auth:{authStatus}
         {" · "}http:{lastAuthHttpStatus ?? "-"}
         {(householdName ?? householdId) ? ` · hh:${householdName ?? householdId}` : ""}
       </p>
       <p className="text-[9px] font-mono text-[#3a3a3a] break-all">href:{location.href.slice(0, 120)}</p>
       <p className="text-[9px] font-mono text-[#3a3a3a] break-all">search:{location.search.slice(0, 120) || "(empty)"}</p>
+      <p className="text-[9px] font-mono text-[#3a3a3a] break-all">hash:{location.hash.slice(0, 120) || "(empty)"}</p>
       <p className="text-[9px] font-mono text-[#3a3a3a] break-all">ua:{navigator.userAgent.slice(0, 80)}</p>
     </div>
   )
 
-  // ── A) Gate: not in Telegram environment ──────────────────────────────────────
-  // Held for 2 s (gateReady) to let Telegram inject its objects before giving up.
+  // ── Retry loop still running ──────────────────────────────────────────────────
 
-  if (!isTgEnv) {
-    if (!gateReady) {
-      return (
-        <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center pb-20">
-          <p className="text-sm font-mono text-[#555]">Loading…</p>
-          {debugFooter}
-        </div>
-      )
-    }
+  if (envState === "checking") {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center pb-20">
+        <p className="text-sm font-mono text-[#555]">Loading…</p>
+        {debugFooter}
+      </div>
+    )
+  }
+
+  // ── A) Gate: not in Telegram environment (all retries exhausted) ──────────────
+
+  if (envState === "web") {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2 pb-20">
         <p className="text-sm font-mono text-[#555] text-center px-8">
@@ -329,6 +339,7 @@ export default function Home() {
     )
   }
 
+  // ── envState === "telegram" from here ────────────────────────────────────────
   // ── D) Auth in progress ───────────────────────────────────────────────────────
 
   if (authStatus === "checking") {
