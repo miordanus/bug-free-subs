@@ -1,52 +1,209 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Subscription } from "@/types/subscription"
-import { loadSubs, saveSubs } from "@/lib/storage"
+import { loadSubs } from "@/lib/storage"
+import { isTelegramWebApp, getTelegramInitData, callTelegramReady } from "@/lib/telegram"
 import BurnSummary from "@/components/BurnSummary"
 import UpcomingList from "@/components/UpcomingList"
 import SubscriptionList from "@/components/SubscriptionList"
 import SubscriptionForm from "@/components/SubscriptionForm"
 
+type TgProfile = {
+  telegram_user_id: number
+  username: string | null
+  first_name: string | null
+  last_name: string | null
+}
+
 export default function Home() {
   const [subs, setSubs] = useState<Subscription[]>([])
   const [mounted, setMounted] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Subscription | null>(null)
   const [monthLabel, setMonthLabel] = useState("")
   const [isDark, setIsDark] = useState(true)
+
   // null = not yet checked (pre-mount), false = not in Telegram, string = initData
   const [tgInitData, setTgInitData] = useState<string | false | null>(null)
+  const [tgProfile, setTgProfile] = useState<TgProfile | null>(null)
+  const [householdId, setHouseholdId] = useState<string | null>(null)
+  const [householdName, setHouseholdName] = useState<string | null>(null)
 
-  // Load from localStorage only after mount (avoids SSR hydration mismatch)
+  // Whether localStorage has existing subs available to import
+  const [localImportReady, setLocalImportReady] = useState(false)
+  const [importing, setImporting] = useState(false)
+
   useEffect(() => {
-    setSubs(loadSubs())
     setMounted(true)
     setMonthLabel(
-      new Date().toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
+      new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })
     )
-    const saved = localStorage.getItem("theme")
-    setIsDark(saved !== "light")
+    const savedTheme = localStorage.getItem("theme")
+    setIsDark(savedTheme !== "light")
 
-    // Telegram Mini App gate
-    type TgWindow = Window & { Telegram?: { WebApp?: { initData?: string } } }
-    const tg = (window as TgWindow).Telegram?.WebApp
-    if (tg) {
-      const data = tg.initData ?? ""
-      localStorage.setItem("tg_initData_v1", data)
-      setTgInitData(data)
-    } else {
+    if (!isTelegramWebApp()) {
       setTgInitData(false)
+      setLoading(false)
+      return
     }
+
+    callTelegramReady()
+    const initData = getTelegramInitData()
+    localStorage.setItem("tg_initData_v1", initData)
+    setTgInitData(initData)
+
+    // Check localStorage for importable legacy data
+    const localSubs = loadSubs()
+    if (localSubs.length > 0) {
+      setLocalImportReady(true)
+    }
+
+    // Phase 2 → 6: validate initData, resolve household, load subs
+    ;(async () => {
+      try {
+        // 1. Validate initData server-side
+        const authRes = await fetch("/api/auth/telegram", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initData }),
+        })
+
+        if (!authRes.ok) {
+          setTgInitData(false)
+          setLoading(false)
+          return
+        }
+
+        const profile: TgProfile = await authRes.json()
+        setTgProfile(profile)
+        const uid = profile.telegram_user_id
+
+        // 2. Resolve household
+        const meRes = await fetch("/api/me", {
+          headers: { "x-telegram-user-id": String(uid) },
+        })
+        if (meRes.ok) {
+          const meData = await meRes.json()
+          setHouseholdId(meData.household_id)
+          setHouseholdName(meData.household_name)
+        }
+
+        // 3. Load subscriptions from Supabase
+        const subsRes = await fetch("/api/subscriptions", {
+          headers: { "x-telegram-user-id": String(uid) },
+        })
+        if (subsRes.ok) {
+          setSubs(await subsRes.json())
+        }
+      } catch (err) {
+        console.error("Telegram init failed:", err)
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [])
 
-  const persist = useCallback((updated: Subscription[]) => {
-    setSubs(updated)
-    saveSubs(updated)
-  }, [])
+  // ── API helpers ──────────────────────────────────────────────────────────────
+
+  function apiHeaders(): HeadersInit {
+    return {
+      "Content-Type": "application/json",
+      "x-telegram-user-id": String(tgProfile?.telegram_user_id ?? ""),
+    }
+  }
+
+  // ── CRUD handlers ────────────────────────────────────────────────────────────
+
+  async function handleSave(sub: Subscription) {
+    if (!tgProfile) return
+    try {
+      if (editing) {
+        const res = await fetch(`/api/subscriptions/${sub.id}`, {
+          method: "PATCH",
+          headers: apiHeaders(),
+          body: JSON.stringify(sub),
+        })
+        if (res.ok) {
+          const updated: Subscription = await res.json()
+          setSubs((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+        }
+      } else {
+        // Strip client-generated id; server assigns its own
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _ignored, ...payload } = sub
+        const res = await fetch("/api/subscriptions", {
+          method: "POST",
+          headers: apiHeaders(),
+          body: JSON.stringify(payload),
+        })
+        if (res.ok) {
+          const created: Subscription = await res.json()
+          setSubs((prev) => [...prev, created])
+        }
+      }
+    } catch (err) {
+      console.error("Save failed:", err)
+    }
+    setModalOpen(false)
+    setEditing(null)
+  }
+
+  async function handleDelete(id: string) {
+    if (!tgProfile) return
+    if (!confirm("Delete this subscription?")) return
+    try {
+      await fetch(`/api/subscriptions/${id}`, {
+        method: "DELETE",
+        headers: { "x-telegram-user-id": String(tgProfile.telegram_user_id) },
+      })
+      setSubs((prev) => prev.filter((s) => s.id !== id))
+    } catch (err) {
+      console.error("Delete failed:", err)
+    }
+  }
+
+  // ── Import from localStorage ──────────────────────────────────────────────────
+
+  async function handleImport() {
+    if (!tgProfile || importing) return
+    const localSubs = loadSubs()
+    if (localSubs.length === 0) {
+      setLocalImportReady(false)
+      return
+    }
+    setImporting(true)
+    try {
+      for (const sub of localSubs) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _ignored, ...payload } = sub
+        await fetch("/api/subscriptions", {
+          method: "POST",
+          headers: apiHeaders(),
+          body: JSON.stringify(payload),
+        })
+      }
+      // Reload from server after import
+      const subsRes = await fetch("/api/subscriptions", {
+        headers: { "x-telegram-user-id": String(tgProfile.telegram_user_id) },
+      })
+      if (subsRes.ok) {
+        setSubs(await subsRes.json())
+      }
+      setLocalImportReady(false)
+      if (confirm(`Imported ${localSubs.length} subscription(s). Clear localStorage data?`)) {
+        localStorage.removeItem("subs_v2")
+        localStorage.removeItem("subs_v1")
+      }
+    } catch (err) {
+      console.error("Import failed:", err)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  // ── Theme toggle ─────────────────────────────────────────────────────────────
 
   function toggleTheme() {
     const next = !isDark
@@ -64,14 +221,7 @@ export default function Home() {
   function exportCSV() {
     const headers = ["Name", "Amount", "Currency", "Billing Cycle", "Next Charge", "Category", "Card", "Owner"]
     const rows = subs.map((s) => [
-      s.name,
-      s.amount,
-      s.currency,
-      s.billingCycle,
-      s.nextChargeDate,
-      s.category,
-      s.card,
-      s.owner,
+      s.name, s.amount, s.currency, s.billingCycle, s.nextChargeDate, s.category, s.card, s.owner,
     ])
     const csv = [headers, ...rows]
       .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
@@ -95,27 +245,13 @@ export default function Home() {
     setModalOpen(true)
   }
 
-  function handleDelete(id: string) {
-    if (!confirm("Delete this subscription?")) return
-    persist(subs.filter((s) => s.id !== id))
-  }
-
-  function handleSave(sub: Subscription) {
-    if (editing) {
-      persist(subs.map((s) => (s.id === editing.id ? sub : s)))
-    } else {
-      persist([...subs, sub])
-    }
-    setModalOpen(false)
-    setEditing(null)
-  }
-
   function handleClose() {
     setModalOpen(false)
     setEditing(null)
   }
 
-  // Gate: block non-Telegram access after mount
+  // ── Gate: block non-Telegram access ──────────────────────────────────────────
+
   if (mounted && tgInitData === false) {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center">
@@ -125,6 +261,8 @@ export default function Home() {
       </div>
     )
   }
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] pb-28">
@@ -160,8 +298,23 @@ export default function Home() {
 
       {/* Content */}
       <main className="px-4 space-y-3 max-w-xl mx-auto">
-        {mounted ? (
+        {mounted && !loading ? (
           <>
+            {/* Import from localStorage banner */}
+            {localImportReady && (
+              <div className="border border-[var(--border)] rounded-lg p-3 flex items-center justify-between gap-3">
+                <p className="text-xs font-mono text-[#888]">
+                  Found local data — import into Supabase?
+                </p>
+                <button
+                  onClick={handleImport}
+                  disabled={importing}
+                  className="text-xs font-mono text-black bg-[#00FF85] px-3 py-1.5 rounded-lg disabled:opacity-50 shrink-0"
+                >
+                  {importing ? "Importing…" : "Import"}
+                </button>
+              </div>
+            )}
             <BurnSummary subs={subs} />
             <UpcomingList subs={subs} />
             <SubscriptionList
@@ -171,7 +324,7 @@ export default function Home() {
             />
           </>
         ) : (
-          // Skeleton while loading from localStorage
+          // Skeleton while loading
           <div className="space-y-3">
             {[120, 280, 200].map((h, i) => (
               <div
@@ -202,11 +355,14 @@ export default function Home() {
         />
       )}
 
-      {/* TG debug */}
+      {/* Debug footer */}
       {typeof tgInitData === "string" && (
-        <p className="text-center text-[10px] font-mono text-[#333] pb-2">
-          TG connected – initData: {tgInitData.length} chars
-        </p>
+        <div className="text-center text-[10px] font-mono text-[#333] pb-2 space-y-0.5">
+          <p>TG connected – initData: {tgInitData.length} chars</p>
+          {(householdName ?? householdId) && (
+            <p>Household: {householdName ?? householdId}</p>
+          )}
+        </div>
       )}
     </div>
   )
