@@ -15,6 +15,8 @@ export default function Home() {
   const [editing, setEditing] = useState<Subscription | null>(null)
   const [monthLabel, setMonthLabel] = useState("")
   const [isDark, setIsDark] = useState(true)
+  // null = not yet checked (pre-mount), false = not in Telegram, string = initData
+  const [tgInitData, setTgInitData] = useState<string | false | null>(null)
 
   // Load from localStorage only after mount (avoids SSR hydration mismatch)
   useEffect(() => {
@@ -28,6 +30,17 @@ export default function Home() {
     )
     const saved = localStorage.getItem("theme")
     setIsDark(saved !== "light")
+
+    // Telegram Mini App gate
+    type TgWindow = Window & { Telegram?: { WebApp?: { initData?: string } } }
+    const tg = (window as TgWindow).Telegram?.WebApp
+    if (tg) {
+      const data = tg.initData ?? ""
+      localStorage.setItem("tg_initData_v1", data)
+      setTgInitData(data)
+    } else {
+      setTgInitData(false)
+    }
   }, [])
 
   const persist = useCallback((updated: Subscription[]) => {
@@ -100,6 +113,17 @@ export default function Home() {
   function handleClose() {
     setModalOpen(false)
     setEditing(null)
+  }
+
+  // Gate: block non-Telegram access after mount
+  if (mounted && tgInitData === false) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center">
+        <p className="text-sm font-mono text-[#555] text-center px-8">
+          Open this app from Telegram: @subsion_bot
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -176,6 +200,13 @@ export default function Home() {
           onSave={handleSave}
           onClose={handleClose}
         />
+      )}
+
+      {/* TG debug */}
+      {typeof tgInitData === "string" && (
+        <p className="text-center text-[10px] font-mono text-[#333] pb-2">
+          TG connected – initData: {tgInitData.length} chars
+        </p>
       )}
     </div>
   )
