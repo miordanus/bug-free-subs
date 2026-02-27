@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
 
   const { name, amount, currency, billingCycle, nextChargeDate, category, card, owner } = body
 
+  console.log(`[POST /api/subscriptions] uid=${userId} household=${householdId} name="${name}" owner=${owner}`)
+
   const { data, error } = await getSupabase()
     .from("subscriptions")
     .insert({
@@ -86,8 +88,11 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error(`[POST /api/subscriptions] insert error: ${error.message} (code=${error.code})`)
+    return NextResponse.json({ error: error.message, details: error.code }, { status: 500 })
   }
 
-  return NextResponse.json(rowToSub(data as Record<string, unknown>), { status: 201 })
+  const created = data as Record<string, unknown>
+  console.log(`[POST /api/subscriptions] created id=${created.id}`)
+  return NextResponse.json(rowToSub(created), { status: 201 })
 }

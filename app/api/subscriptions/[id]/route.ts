@@ -45,6 +45,8 @@ export async function PATCH(
 
   const { name, amount, currency, billingCycle, nextChargeDate, category, card, owner } = body
 
+  console.log(`[PATCH /api/subscriptions/${id}] uid=${userId} household=${householdId}`)
+
   const { data, error } = await getSupabase()
     .from("subscriptions")
     .update({
@@ -64,12 +66,15 @@ export async function PATCH(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error(`[PATCH /api/subscriptions/${id}] update error: ${error.message} (code=${error.code})`)
+    return NextResponse.json({ error: error.message, details: error.code }, { status: 500 })
   }
   if (!data) {
+    console.error(`[PATCH /api/subscriptions/${id}] not found`)
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
+  console.log(`[PATCH /api/subscriptions/${id}] updated ok`)
   return NextResponse.json(rowToSub(data as Record<string, unknown>))
 }
 
