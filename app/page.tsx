@@ -14,6 +14,7 @@ export default function Home() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Subscription | null>(null)
   const [monthLabel, setMonthLabel] = useState("")
+  const [isDark, setIsDark] = useState(true)
 
   // Load from localStorage only after mount (avoids SSR hydration mismatch)
   useEffect(() => {
@@ -25,12 +26,51 @@ export default function Home() {
         year: "numeric",
       })
     )
+    const saved = localStorage.getItem("theme")
+    setIsDark(saved !== "light")
   }, [])
 
   const persist = useCallback((updated: Subscription[]) => {
     setSubs(updated)
     saveSubs(updated)
   }, [])
+
+  function toggleTheme() {
+    const next = !isDark
+    setIsDark(next)
+    const html = document.documentElement
+    if (next) {
+      html.classList.add("dark")
+      localStorage.setItem("theme", "dark")
+    } else {
+      html.classList.remove("dark")
+      localStorage.setItem("theme", "light")
+    }
+  }
+
+  function exportCSV() {
+    const headers = ["Name", "Amount", "Currency", "Billing Cycle", "Next Charge", "Category", "Card", "Owner"]
+    const rows = subs.map((s) => [
+      s.name,
+      s.amount,
+      s.currency,
+      s.billingCycle,
+      s.nextChargeDate,
+      s.category,
+      s.card,
+      s.owner,
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `subscriptions-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   function handleAdd() {
     setEditing(null)
@@ -63,13 +103,35 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white pb-28">
+    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] pb-28">
       {/* Header */}
       <header className="px-4 pt-12 pb-6 max-w-xl mx-auto">
-        <h1 className="text-2xl font-bold tracking-tight">Subscriptions</h1>
-        <p className="text-xs text-[#444] mt-1 font-mono uppercase tracking-widest">
-          {monthLabel || "\u00A0"}
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Subscriptions</h1>
+            <p className="text-xs text-[#444] mt-1 font-mono uppercase tracking-widest">
+              {monthLabel || "\u00A0"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            {mounted && (
+              <button
+                onClick={exportCSV}
+                disabled={subs.length === 0}
+                className="text-xs font-mono text-[#555] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:border-[#444] transition-colors disabled:opacity-30"
+              >
+                Export CSV
+              </button>
+            )}
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="text-base border border-[var(--border)] w-9 h-9 flex items-center justify-center rounded-lg hover:border-[#444] transition-colors"
+            >
+              {isDark ? "☀️" : "🌙"}
+            </button>
+          </div>
+        </div>
       </header>
 
       {/* Content */}
@@ -90,7 +152,7 @@ export default function Home() {
             {[120, 280, 200].map((h, i) => (
               <div
                 key={i}
-                className="bg-[#111111] border border-[#1F1F1F] rounded-lg animate-pulse"
+                className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg animate-pulse"
                 style={{ height: h }}
               />
             ))}

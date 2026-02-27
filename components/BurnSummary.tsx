@@ -15,7 +15,7 @@ export default function BurnSummary({ subs }: Props) {
   ][]
 
   return (
-    <div className="bg-[#111111] border border-[#1F1F1F] rounded-lg p-5">
+    <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-5">
       <p className="text-xs text-[#555] uppercase tracking-widest mb-4 font-mono">
         Monthly Burn
       </p>
