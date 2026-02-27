@@ -173,7 +173,7 @@ export default function SubscriptionForm({ initial, funMode, onSave, onClose }: 
                       : "bg-[var(--bg-page)] text-[#555] border-[var(--input-border)] hover:border-[#444]"
                   }`}
                 >
-                  {cycle}
+                  {cycle === "monthly" ? t("cycle.monthly", funMode) : t("cycle.yearly", funMode)}
                 </button>
               ))}
             </div>

@@ -21,7 +21,7 @@ function OwnerBadge({ owner }: { owner: Owner }) {
     <span
       className={`text-[10px] px-2 py-0.5 rounded-full font-mono leading-tight ${
         owner === "me"
-          ? "bg-black/10 text-black/60 dark:bg-white/20 dark:text-white/85"
+          ? "bg-[var(--owner-max-bg)] text-[var(--owner-max-text)]"
           : "bg-[#FF6B9D]/20 text-[#FF6B9D]"
       }`}
     >
