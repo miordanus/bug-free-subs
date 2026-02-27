@@ -9,12 +9,12 @@ type Props = {
   onDelete: (id: string) => void
 }
 
-function OwnerBadge({ owner }: { owner: "me" | "wife" }) {
+function OwnerBadge({ owner }: { owner: "max" | "molly" }) {
   return (
     <span
       className={`text-[10px] px-2 py-0.5 rounded-full font-mono leading-tight ${
-        owner === "me"
-          ? "bg-white/10 text-white/60"
+        owner === "max"
+          ? "bg-black/10 text-black/50 dark:bg-white/10 dark:text-white/60"
           : "bg-[#FF6B9D]/20 text-[#FF6B9D]"
       }`}
     >
@@ -25,7 +25,7 @@ function OwnerBadge({ owner }: { owner: "me" | "wife" }) {
 
 export default function SubscriptionList({ subs, onEdit, onDelete }: Props) {
   return (
-    <div className="bg-[#111111] border border-[#1F1F1F] rounded-lg overflow-hidden">
+    <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg overflow-hidden">
       <div className="px-5 pt-5 pb-3">
         <p className="text-xs text-[#555] uppercase tracking-widest font-mono">
           All Subscriptions
@@ -44,7 +44,7 @@ export default function SubscriptionList({ subs, onEdit, onDelete }: Props) {
           {subs.map((sub) => (
             <div
               key={sub.id}
-              className="px-5 py-4 border-b border-[#1F1F1F] last:border-b-0"
+              className="px-5 py-4 border-b border-[var(--border)] last:border-b-0"
             >
               {/* Top row: name + amount */}
               <div className="flex items-start justify-between mb-2">
@@ -76,13 +76,13 @@ export default function SubscriptionList({ subs, onEdit, onDelete }: Props) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onEdit(sub)}
-                    className="text-xs text-[#555] hover:text-white transition-colors px-3 py-1.5 border border-[#222] rounded-lg active:scale-95"
+                    className="text-xs text-[#555] hover:text-[var(--text)] transition-colors px-3 py-1.5 border border-[var(--border)] rounded-lg active:scale-95"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => onDelete(sub.id)}
-                    className="text-xs text-[#555] hover:text-red-400 transition-colors px-3 py-1.5 border border-[#222] rounded-lg active:scale-95"
+                    className="text-xs text-[#555] hover:text-red-400 transition-colors px-3 py-1.5 border border-[var(--border)] rounded-lg active:scale-95"
                   >
                     Delete
                   </button>

@@ -1,6 +1,6 @@
 export type Currency = "EUR" | "USD" | "RUB"
 export type BillingCycle = "monthly" | "yearly"
-export type Owner = "me" | "wife"
+export type Owner = "max" | "molly"
 
 export type Subscription = {
   id: string

@@ -23,7 +23,7 @@ type FormState = {
 type FormErrors = Partial<Record<keyof FormState, string>>
 
 const INPUT =
-  "w-full bg-[#0A0A0A] border border-[#2A2A2A] text-white px-3 py-3 rounded-lg text-sm focus:outline-none focus:border-[#00FF85] transition-colors font-mono placeholder:text-[#333] appearance-none"
+  "w-full bg-[var(--bg-input)] border border-[var(--input-border)] text-[var(--text)] px-3 py-3 rounded-lg text-sm focus:outline-none focus:border-[#00FF85] transition-colors font-mono placeholder:text-[#555] appearance-none"
 const LABEL =
   "block text-[10px] text-[#555] mb-1.5 uppercase tracking-widest font-mono"
 
@@ -38,7 +38,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
     nextChargeDate: initial?.nextChargeDate ?? today,
     category: initial?.category ?? "",
     card: initial?.card ?? "",
-    owner: initial?.owner ?? "me",
+    owner: initial?.owner ?? "max",
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
@@ -81,16 +81,16 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bg-[#111111] border border-[#1F1F1F] rounded-t-2xl sm:rounded-xl w-full max-w-md max-h-[92dvh] overflow-y-auto">
+      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-t-2xl sm:rounded-xl w-full max-w-md max-h-[92dvh] overflow-y-auto">
         {/* Modal header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F1F] sticky top-0 bg-[#111111] z-10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)] z-10">
           <h2 className="text-sm font-bold tracking-tight">
             {initial ? "Edit Subscription" : "Add Subscription"}
           </h2>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="text-[#555] hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg border border-[#222] text-xs"
+            className="text-[#555] hover:text-[var(--text)] transition-colors w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--border)] text-xs"
           >
             ✕
           </button>
@@ -158,7 +158,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
                   className={`py-3 text-xs font-mono uppercase tracking-wider rounded-lg border transition-colors ${
                     form.billingCycle === cycle
                       ? "bg-[#00FF85] text-black border-[#00FF85]"
-                      : "bg-[#0A0A0A] text-[#555] border-[#2A2A2A] hover:border-[#444]"
+                      : "bg-[var(--bg-page)] text-[#555] border-[var(--input-border)] hover:border-[#444]"
                   }`}
                 >
                   {cycle}
@@ -211,20 +211,20 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
           <div>
             <label className={LABEL}>Owner</label>
             <div className="grid grid-cols-2 gap-2">
-              {(["me", "wife"] as const).map((owner) => (
+              {(["max", "molly"] as const).map((owner) => (
                 <button
                   key={owner}
                   type="button"
                   onClick={() => set("owner", owner)}
                   className={`py-3 text-xs font-mono uppercase tracking-wider rounded-lg border transition-colors ${
                     form.owner === owner
-                      ? owner === "me"
+                      ? owner === "max"
                         ? "bg-white text-black border-white"
                         : "bg-[#FF6B9D] text-black border-[#FF6B9D]"
-                      : "bg-[#0A0A0A] text-[#555] border-[#2A2A2A] hover:border-[#444]"
+                      : "bg-[var(--bg-page)] text-[#555] border-[var(--input-border)] hover:border-[#444]"
                   }`}
                 >
-                  {owner === "me" ? "Me" : "Wife"}
+                  {owner === "max" ? "Max" : "Molly"}
                 </button>
               ))}
             </div>
