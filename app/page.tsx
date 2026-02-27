@@ -31,6 +31,9 @@ export default function Home() {
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [householdName, setHouseholdName] = useState<string | null>(null)
 
+  // true when we're inside Telegram but initData failed server-side validation
+  const [tgAuthFailed, setTgAuthFailed] = useState(false)
+
   // Whether localStorage has existing subs available to import
   const [localImportReady, setLocalImportReady] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -71,7 +74,9 @@ export default function Home() {
         })
 
         if (!authRes.ok) {
-          setTgInitData(false)
+          // We ARE in Telegram — don't touch tgInitData (that would trigger the gate).
+          // Show a dedicated auth-failure screen instead.
+          setTgAuthFailed(true)
           setLoading(false)
           return
         }
@@ -251,12 +256,25 @@ export default function Home() {
   }
 
   // ── Gate: block non-Telegram access ──────────────────────────────────────────
+  // Only fires when window.Telegram.WebApp was absent at mount — never on auth failure.
 
   if (mounted && tgInitData === false) {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center">
         <p className="text-sm font-mono text-[#555] text-center px-8">
           Open this app from Telegram: @subsion_bot
+        </p>
+      </div>
+    )
+  }
+
+  // ── Auth failure (inside Telegram but session invalid) ────────────────────────
+
+  if (mounted && !loading && tgAuthFailed) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center">
+        <p className="text-sm font-mono text-[#555] text-center px-8">
+          Session expired — please close and reopen from @subsion_bot
         </p>
       </div>
     )
