@@ -1,6 +1,6 @@
 "use client"
 
-import { Subscription } from "@/types/subscription"
+import { Subscription, Owner } from "@/types/subscription"
 import { getUpcoming, CURRENCY_SYMBOL } from "@/lib/calculations"
 
 type Props = {
@@ -14,16 +14,16 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-function OwnerBadge({ owner }: { owner: "max" | "molly" }) {
+function OwnerBadge({ owner }: { owner: Owner }) {
   return (
     <span
       className={`text-[10px] px-2 py-0.5 rounded-full font-mono leading-tight ${
-        owner === "max"
+        owner === "me"
           ? "bg-black/10 text-black/50 dark:bg-white/10 dark:text-white/60"
           : "bg-[#FF6B9D]/20 text-[#FF6B9D]"
       }`}
     >
-      {owner}
+      {owner === "me" ? "Max" : "Molly"}
     </span>
   )
 }

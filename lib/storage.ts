@@ -9,7 +9,7 @@ function migrateV1(raw: string): Subscription[] {
     if (!Array.isArray(parsed)) return []
     return parsed.map((s: Record<string, unknown>) => ({
       ...s,
-      owner: s.owner === "me" ? "max" : s.owner === "wife" ? "molly" : s.owner,
+      owner: s.owner === "max" ? "me" : s.owner === "molly" ? "wife" : s.owner,
     })) as Subscription[]
   } catch {
     return []
