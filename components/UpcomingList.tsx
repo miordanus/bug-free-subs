@@ -2,9 +2,11 @@
 
 import { Subscription, Owner } from "@/types/subscription"
 import { getUpcoming, CURRENCY_SYMBOL } from "@/lib/calculations"
+import { t } from "@/lib/i18n"
 
 type Props = {
   subs: Subscription[]
+  funMode: boolean
 }
 
 function formatDate(dateStr: string): string {
@@ -19,7 +21,7 @@ function OwnerBadge({ owner }: { owner: Owner }) {
     <span
       className={`text-[10px] px-2 py-0.5 rounded-full font-mono leading-tight ${
         owner === "me"
-          ? "bg-black/10 text-black/50 dark:bg-white/10 dark:text-white/60"
+          ? "bg-black/10 text-black/60 dark:bg-white/20 dark:text-white/85"
           : "bg-[#FF6B9D]/20 text-[#FF6B9D]"
       }`}
     >
@@ -28,20 +30,20 @@ function OwnerBadge({ owner }: { owner: Owner }) {
   )
 }
 
-export default function UpcomingList({ subs }: Props) {
+export default function UpcomingList({ subs, funMode }: Props) {
   const upcoming = getUpcoming(subs)
 
   return (
     <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg overflow-hidden">
       <div className="px-5 pt-5 pb-3">
         <p className="text-xs text-[#555] uppercase tracking-widest font-mono">
-          Upcoming Charges
+          {t("upcoming.title", funMode)}
         </p>
       </div>
 
       {upcoming.length === 0 ? (
         <div className="px-5 pb-5">
-          <p className="text-[#444] text-sm font-mono">— no upcoming charges</p>
+          <p className="text-[#444] text-sm font-mono">{t("upcoming.empty", funMode)}</p>
         </div>
       ) : (
         <div>

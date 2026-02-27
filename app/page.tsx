@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Subscription } from "@/types/subscription"
 import { loadSubs } from "@/lib/storage"
 import { detectTelegramEnv, callTelegramReady, getTelegramInitData } from "@/lib/telegram"
+import { t } from "@/lib/i18n"
 import BurnSummary from "@/components/BurnSummary"
 import UpcomingList from "@/components/UpcomingList"
 import SubscriptionList from "@/components/SubscriptionList"
@@ -37,6 +38,7 @@ export default function Home() {
   const [editing, setEditing] = useState<Subscription | null>(null)
   const [monthLabel, setMonthLabel] = useState("")
   const [isDark, setIsDark] = useState(true)
+  const [funMode, setFunMode] = useState(true)
 
   // "checking" until retry loop resolves; once "telegram", never downgrades to "web"
   const [envState, setEnvState] = useState<EnvState>("checking")
@@ -61,6 +63,8 @@ export default function Home() {
     )
     const savedTheme = localStorage.getItem("theme")
     setIsDark(savedTheme !== "light")
+    const savedFun = localStorage.getItem("funMode")
+    if (savedFun !== null) setFunMode(savedFun !== "false")
 
     // A) Retry loop: poll for Telegram env up to ENV_MAX_RETRIES times.
     //    Once "telegram" detected, never downgrade to "web".
@@ -268,6 +272,12 @@ export default function Home() {
     }
   }
 
+  function toggleFunMode() {
+    const next = !funMode
+    setFunMode(next)
+    localStorage.setItem("funMode", String(next))
+  }
+
   function exportCSV() {
     const headers = ["Name", "Amount", "Currency", "Billing Cycle", "Next Charge", "Category", "Card", "Owner"]
     const rows = subs.map((s) => [
@@ -466,7 +476,7 @@ export default function Home() {
       <header className="px-4 pb-6 max-w-xl mx-auto" style={{ paddingTop: "max(3rem, env(safe-area-inset-top, 3rem))" }}>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Subscriptions</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t("app.title", funMode)}</h1>
             <p className="text-xs text-[#444] mt-1 font-mono uppercase tracking-widest">
               {monthLabel || "\u00A0"}
             </p>
@@ -477,7 +487,19 @@ export default function Home() {
               disabled={subs.length === 0}
               className="text-xs font-mono text-[#555] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:border-[#444] transition-colors disabled:opacity-30"
             >
-              Export CSV
+              {t("btn.exportCsv", funMode)}
+            </button>
+            <button
+              onClick={toggleFunMode}
+              aria-label="Toggle fun mode"
+              title={funMode ? "Switch to standard mode" : "Switch to fun mode"}
+              className={`text-xs font-mono border px-2 py-1.5 rounded-lg transition-colors ${
+                funMode
+                  ? "border-[#00FF85] text-[#00FF85]"
+                  : "border-[var(--border)] text-[#555] hover:border-[#444]"
+              }`}
+            >
+              {t("toggle.funMode", funMode)}
             </button>
             <button
               onClick={toggleTheme}
@@ -495,21 +517,22 @@ export default function Home() {
         {localImportReady && (
           <div className="border border-[var(--border)] rounded-lg p-3 flex items-center justify-between gap-3">
             <p className="text-xs font-mono text-[#888]">
-              Found local data — import into Supabase?
+              {t("import.banner", funMode)}
             </p>
             <button
               onClick={handleImport}
               disabled={importing}
               className="text-xs font-mono text-black bg-[#00FF85] px-3 py-1.5 rounded-lg disabled:opacity-50 shrink-0"
             >
-              {importing ? "Importing…" : "Import"}
+              {importing ? t("btn.importing", funMode) : t("btn.import", funMode)}
             </button>
           </div>
         )}
-        <BurnSummary subs={subs} />
-        <UpcomingList subs={subs} />
+        <BurnSummary subs={subs} funMode={funMode} />
+        <UpcomingList subs={subs} funMode={funMode} />
         <SubscriptionList
           subs={subs}
+          funMode={funMode}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
@@ -522,13 +545,14 @@ export default function Home() {
         className="fixed right-6 bg-[#00FF85] text-black font-bold text-sm uppercase tracking-wider px-6 py-4 rounded-xl z-40 active:scale-95 transition-transform shadow-none min-w-[100px]"
         style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom, 1.5rem))" }}
       >
-        + Add
+        {t("btn.add", funMode)}
       </button>
 
       {/* Modal */}
       {modalOpen && (
         <SubscriptionForm
           initial={editing}
+          funMode={funMode}
           onSave={handleSave}
           onClose={handleClose}
         />

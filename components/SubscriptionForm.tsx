@@ -2,9 +2,11 @@
 
 import { useState } from "react"
 import { Subscription, Currency, BillingCycle, Owner } from "@/types/subscription"
+import { t } from "@/lib/i18n"
 
 type Props = {
   initial: Subscription | null
+  funMode: boolean
   onSave: (sub: Subscription) => Promise<string | null>
   onClose: () => void
 }
@@ -27,7 +29,7 @@ const INPUT =
 const LABEL =
   "block text-[10px] text-[#555] mb-1.5 uppercase tracking-widest font-mono"
 
-export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
+export default function SubscriptionForm({ initial, funMode, onSave, onClose }: Props) {
   const today = new Date().toISOString().split("T")[0]
 
   const [form, setForm] = useState<FormState>({
@@ -95,7 +97,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
         {/* Modal header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)] z-10">
           <h2 className="text-sm font-bold tracking-tight">
-            {initial ? "Edit Subscription" : "Add Subscription"}
+            {initial ? t("form.editTitle", funMode) : t("form.addTitle", funMode)}
           </h2>
           <button
             onClick={onClose}
@@ -109,7 +111,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
         <form onSubmit={handleSubmit} className="p-5 space-y-4" style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))" }}>
           {/* Name */}
           <div>
-            <label className={LABEL}>Name</label>
+            <label className={LABEL}>{t("form.field.name", funMode)}</label>
             <input
               type="text"
               className={INPUT}
@@ -126,7 +128,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
           {/* Amount + Currency */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={LABEL}>Amount</label>
+              <label className={LABEL}>{t("form.field.amount", funMode)}</label>
               <input
                 type="number"
                 min="0.01"
@@ -143,7 +145,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
               )}
             </div>
             <div>
-              <label className={LABEL}>Currency</label>
+              <label className={LABEL}>{t("form.field.currency", funMode)}</label>
               <select
                 className={INPUT}
                 value={form.currency}
@@ -158,7 +160,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
 
           {/* Billing Cycle */}
           <div>
-            <label className={LABEL}>Billing Cycle</label>
+            <label className={LABEL}>{t("form.field.billingCycle", funMode)}</label>
             <div className="grid grid-cols-2 gap-2">
               {(["monthly", "yearly"] as const).map((cycle) => (
                 <button
@@ -179,7 +181,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
 
           {/* Next Charge Date */}
           <div>
-            <label className={LABEL}>Next Charge Date</label>
+            <label className={LABEL}>{t("form.field.nextChargeDate", funMode)}</label>
             <input
               type="date"
               className={INPUT}
@@ -195,7 +197,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
 
           {/* Category */}
           <div>
-            <label className={LABEL}>Category</label>
+            <label className={LABEL}>{t("form.field.category", funMode)}</label>
             <input
               type="text"
               className={INPUT}
@@ -207,7 +209,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
 
           {/* Card */}
           <div>
-            <label className={LABEL}>Card</label>
+            <label className={LABEL}>{t("form.field.card", funMode)}</label>
             <input
               type="text"
               className={INPUT}
@@ -219,7 +221,7 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
 
           {/* Owner */}
           <div>
-            <label className={LABEL}>Owner</label>
+            <label className={LABEL}>{t("form.field.owner", funMode)}</label>
             <div className="grid grid-cols-2 gap-2">
               {([{ label: "Max", value: "me" }, { label: "Molly", value: "wife" }] as const).map(({ label, value }) => (
                 <button
@@ -256,7 +258,11 @@ export default function SubscriptionForm({ initial, onSave, onClose }: Props) {
             disabled={saving}
             className="w-full bg-[#00FF85] text-black font-bold text-sm uppercase tracking-wider py-4 rounded-xl mt-2 active:scale-[0.98] transition-transform disabled:opacity-50"
           >
-            {saving ? "Saving…" : initial ? "Save Changes" : "Add Subscription"}
+            {saving
+              ? t("form.submit.saving", funMode)
+              : initial
+              ? t("form.submit.save", funMode)
+              : t("form.submit.add", funMode)}
           </button>
         </form>
       </div>

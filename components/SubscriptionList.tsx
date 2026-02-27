@@ -3,9 +3,11 @@
 import { useState } from "react"
 import { Subscription, Owner } from "@/types/subscription"
 import { CURRENCY_SYMBOL } from "@/lib/calculations"
+import { t } from "@/lib/i18n"
 
 type Props = {
   subs: Subscription[]
+  funMode: boolean
   onEdit: (sub: Subscription) => void
   onDelete: (id: string) => void
 }
@@ -15,7 +17,7 @@ function OwnerBadge({ owner }: { owner: Owner }) {
     <span
       className={`text-[10px] px-2 py-0.5 rounded-full font-mono leading-tight ${
         owner === "me"
-          ? "bg-black/10 text-black/50 dark:bg-white/10 dark:text-white/60"
+          ? "bg-black/10 text-black/60 dark:bg-white/20 dark:text-white/85"
           : "bg-[#FF6B9D]/20 text-[#FF6B9D]"
       }`}
     >
@@ -24,7 +26,7 @@ function OwnerBadge({ owner }: { owner: Owner }) {
   )
 }
 
-export default function SubscriptionList({ subs, onEdit, onDelete }: Props) {
+export default function SubscriptionList({ subs, funMode, onEdit, onDelete }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -57,7 +59,7 @@ export default function SubscriptionList({ subs, onEdit, onDelete }: Props) {
       {subs.length === 0 ? (
         <div className="px-5 pb-5">
           <p className="text-[#444] text-sm font-mono">
-            — tap + Add to get started
+            {t("subs.empty", funMode)}
           </p>
         </div>
       ) : (
@@ -99,13 +101,13 @@ export default function SubscriptionList({ subs, onEdit, onDelete }: Props) {
                     onClick={() => onEdit(sub)}
                     className="text-xs text-[#555] hover:text-[var(--text)] transition-colors px-3 py-1.5 border border-[var(--border)] rounded-lg active:scale-95"
                   >
-                    Edit
+                    {t("btn.edit", funMode)}
                   </button>
                   <button
                     onClick={() => onDelete(sub.id)}
                     className="text-xs text-[#555] hover:text-red-400 transition-colors px-3 py-1.5 border border-[var(--border)] rounded-lg active:scale-95"
                   >
-                    Delete
+                    {t("btn.delete", funMode)}
                   </button>
                 </div>
               </div>
