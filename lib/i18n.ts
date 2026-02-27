@@ -20,6 +20,7 @@ export type StringKey =
   | "burn.empty"
   | "upcoming.title"
   | "upcoming.empty"
+  | "subs.title"
   | "subs.empty"
   | "btn.add"
   | "btn.exportCsv"
@@ -28,6 +29,8 @@ export type StringKey =
   | "btn.import"
   | "btn.importing"
   | "import.banner"
+  | "cycle.monthly"
+  | "cycle.yearly"
   | "form.addTitle"
   | "form.editTitle"
   | "form.submit.add"
@@ -54,6 +57,7 @@ const standard: FullDict = {
   "burn.empty":              "— no subscriptions yet",
   "upcoming.title":          "Upcoming Charges",
   "upcoming.empty":          "— no upcoming charges",
+  "subs.title":              "All Subscriptions",
   "subs.empty":              "— tap + Add to get started",
   "btn.add":                 "+ Add",
   "btn.exportCsv":           "Export CSV",
@@ -62,6 +66,8 @@ const standard: FullDict = {
   "btn.import":              "Import",
   "btn.importing":           "Importing…",
   "import.banner":           "Found local data — import into Supabase?",
+  "cycle.monthly":           "Monthly",
+  "cycle.yearly":            "Annually",
   "form.addTitle":           "Add Subscription",
   "form.editTitle":          "Edit Subscription",
   "form.submit.add":         "Add Subscription",
@@ -97,6 +103,13 @@ const fun_ru: PartialDict = {
   "app.title":      "подписечки",
   "burn.title":     "проёбочки",
   "upcoming.title": "бляяя",
+  "subs.title":     "настроечки",
+  "btn.exportCsv":  "жахни csv",
+  "btn.edit":       "правим",
+  "btn.delete":     "нах",
+  "cycle.monthly":  "мес",
+  "cycle.yearly":   "год",
+  "toggle.funMode": "фан",
 }
 
 // ── Public helper ─────────────────────────────────────────────────────────────

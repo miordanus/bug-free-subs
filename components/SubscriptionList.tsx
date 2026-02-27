@@ -17,7 +17,7 @@ function OwnerBadge({ owner }: { owner: Owner }) {
     <span
       className={`text-[10px] px-2 py-0.5 rounded-full font-mono leading-tight ${
         owner === "me"
-          ? "bg-black/10 text-black/60 dark:bg-white/20 dark:text-white/85"
+          ? "bg-[var(--owner-max-bg)] text-[var(--owner-max-text)]"
           : "bg-[#FF6B9D]/20 text-[#FF6B9D]"
       }`}
     >
@@ -36,7 +36,7 @@ export default function SubscriptionList({ subs, funMode, onEdit, onDelete }: Pr
         className="w-full px-5 pt-5 pb-3 flex items-center justify-between"
       >
         <p className="text-xs text-[#555] uppercase tracking-widest font-mono">
-          All Subscriptions
+          {t("subs.title", funMode)}
           <span className="ml-2 text-[#333]">({subs.length})</span>
         </p>
         <svg

@@ -8,25 +8,32 @@
 /* Light mode (default) */
 :root {
   color-scheme: light;
-  --bg-page:       #F5F5F5;
-  --bg-card:       #FFFFFF;
-  --bg-input:      #FAFAFA;
-  --border:        #E5E5E5;
-  --input-border:  #D1D5DB;
-  --text:          #111111;
-  --text-muted:    rgba(0, 0, 0, 0.5);
+  --bg-page:        #F5F5F5;
+  --bg-card:        #FFFFFF;
+  --bg-input:       #FAFAFA;
+  --border:         #E5E5E5;
+  --input-border:   #D1D5DB;
+  --text:           #111111;
+  --text-muted:     rgba(0, 0, 0, 0.5);
+  /* Owner badge — light mode */
+  --owner-max-bg:   rgba(0, 0, 0, 0.08);
+  --owner-max-text: rgba(0, 0, 0, 0.6);
 }
 
 /* Dark mode */
 .dark {
   color-scheme: dark;
-  --bg-page:       #0A0A0A;
-  --bg-card:       #111111;
-  --bg-input:      #0A0A0A;
-  --border:        #1F1F1F;
-  --input-border:  #2A2A2A;
-  --text:          #FFFFFF;
-  --text-muted:    rgba(255, 255, 255, 0.5);
+  /* Backgrounds lifted ~40% from near-black → visible dark grays */
+  --bg-page:        #1A1A1A;
+  --bg-card:        #222222;
+  --bg-input:       #1A1A1A;
+  --border:         #2E2E2E;
+  --input-border:   #3C3C3C;
+  --text:           #FFFFFF;
+  --text-muted:     rgba(255, 255, 255, 0.5);
+  /* Owner badge — dark mode: muted accent green (15% desaturated, 15% opacity bg) */
+  --owner-max-bg:   rgba(0, 255, 133, 0.15);
+  --owner-max-text: #00D16C;
 }
 
 *,

@@ -471,7 +471,10 @@ export default function Home() {
   // ── C/D) Main app — authStatus === "authed" ───────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] pb-28">
+    <div
+      className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]"
+      style={{ paddingBottom: "calc(8rem + env(safe-area-inset-bottom, 0px))" }}
+    >
       {/* Header */}
       <header className="px-4 pb-6 max-w-xl mx-auto" style={{ paddingTop: "max(3rem, env(safe-area-inset-top, 3rem))" }}>
         <div className="flex items-start justify-between">
@@ -513,7 +516,7 @@ export default function Home() {
       </header>
 
       {/* Content */}
-      <main className="px-4 space-y-3 max-w-xl mx-auto">
+      <main className="px-4 space-y-4 max-w-xl mx-auto">
         {localImportReady && (
           <div className="border border-[var(--border)] rounded-lg p-3 flex items-center justify-between gap-3">
             <p className="text-xs font-mono text-[#888]">
