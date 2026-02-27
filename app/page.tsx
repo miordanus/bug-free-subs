@@ -63,6 +63,9 @@ export default function Home() {
   const [localImportReady, setLocalImportReady] = useState(false)
   const [importing, setImporting] = useState(false)
 
+  // Gate is held for 2 s to avoid flicker when Telegram env is slow to inject
+  const [gateReady, setGateReady] = useState(false)
+
   useEffect(() => {
     setMounted(true)
     setMonthLabel(
@@ -75,7 +78,11 @@ export default function Home() {
     const tgEnv = detectTelegramEnv()
     setIsTgEnv(tgEnv)
 
-    if (!tgEnv) return // gate will render based on isTgEnv=false
+    if (!tgEnv) {
+      // Delay gate by 2 s so Telegram env has time to inject its objects
+      const t = setTimeout(() => setGateReady(true), 2000)
+      return () => clearTimeout(t)
+    }
 
     callTelegramReady()
     const initData = getTelegramInitData()
@@ -265,23 +272,8 @@ export default function Home() {
   function handleEdit(sub: Subscription) { setEditing(sub); setModalOpen(true) }
   function handleClose() { setModalOpen(false); setEditing(null) }
 
-  // ── Debug footer ──────────────────────────────────────────────────────────────
-
-  const debugFooter = (
-    <div className="text-center text-[10px] font-mono text-[#333] pb-2 pt-6 space-y-0.5">
-      <p>
-        env:{isTgEnv === null ? "?" : isTgEnv ? "tg" : "web"}
-        {" · "}initData:{initDataLength ?? "?"}
-        {" · "}auth:{authStatus}
-        {" · "}http:{lastAuthHttpStatus ?? "-"}
-      </p>
-      {(householdName ?? householdId) && (
-        <p>Household: {householdName ?? householdId}</p>
-      )}
-    </div>
-  )
-
   // ── D) Loading: pre-mount or env not yet detected ─────────────────────────────
+  // (window not safely available here — no diagnostic footer)
 
   if (!mounted || isTgEnv === null) {
     return (
@@ -291,11 +283,44 @@ export default function Home() {
     )
   }
 
+  // ── Debug footer — computed here so window access is always safe ──────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any
+  const debugFooter = (
+    <div className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95 border-t border-[#1F1F1F] px-2 py-1.5 z-50 space-y-0.5">
+      <p className="text-[9px] font-mono text-[#444] break-all">
+        env:{isTgEnv ? "tg" : "web"}
+        {" · "}hasWindow:true
+        {" · "}hasTg:{String(!!w.Telegram)}
+        {" · "}hasWebApp:{String(!!w.Telegram?.WebApp)}
+        {" · "}hasProxy:{String(!!w.TelegramWebviewProxy)}
+        {" · "}initDataLen:{w.Telegram?.WebApp?.initData?.length ?? 0}
+      </p>
+      <p className="text-[9px] font-mono text-[#444] break-all">
+        auth:{authStatus}
+        {" · "}http:{lastAuthHttpStatus ?? "-"}
+        {(householdName ?? householdId) ? ` · hh:${householdName ?? householdId}` : ""}
+      </p>
+      <p className="text-[9px] font-mono text-[#3a3a3a] break-all">href:{location.href.slice(0, 120)}</p>
+      <p className="text-[9px] font-mono text-[#3a3a3a] break-all">search:{location.search.slice(0, 120) || "(empty)"}</p>
+      <p className="text-[9px] font-mono text-[#3a3a3a] break-all">ua:{navigator.userAgent.slice(0, 80)}</p>
+    </div>
+  )
+
   // ── A) Gate: not in Telegram environment ──────────────────────────────────────
+  // Held for 2 s (gateReady) to let Telegram inject its objects before giving up.
 
   if (!isTgEnv) {
+    if (!gateReady) {
+      return (
+        <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex items-center justify-center pb-20">
+          <p className="text-sm font-mono text-[#555]">Loading…</p>
+          {debugFooter}
+        </div>
+      )
+    }
     return (
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2">
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2 pb-20">
         <p className="text-sm font-mono text-[#555] text-center px-8">
           Open this app from Telegram: @{BOT_USERNAME}
         </p>
@@ -308,7 +333,7 @@ export default function Home() {
 
   if (authStatus === "checking") {
     return (
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2">
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2 pb-20">
         <p className="text-sm font-mono text-[#555]">Authenticating…</p>
         {debugFooter}
       </div>
@@ -319,7 +344,7 @@ export default function Home() {
 
   if (authStatus === "no_initdata") {
     return (
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8">
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8 pb-20">
         <p className="text-sm font-mono text-[#888] text-center leading-relaxed">
           Telegram Desktop may not provide initData.
           <br />
@@ -342,7 +367,7 @@ export default function Home() {
 
   if (authStatus === "invalid_initdata") {
     return (
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8">
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8 pb-20">
         <p className="text-sm font-mono text-[#888] text-center">
           Session expired. Reopen from bot.
         </p>
@@ -363,7 +388,7 @@ export default function Home() {
 
   if (authStatus === "not_in_household") {
     return (
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8">
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-4 px-8 pb-20">
         <p className="text-sm font-mono text-[#888] text-center leading-relaxed">
           Your account is not linked to a household.
           <br />
@@ -384,7 +409,7 @@ export default function Home() {
 
   if (authStatus === "error") {
     return (
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2 px-8">
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)] flex flex-col items-center justify-center gap-2 px-8 pb-20">
         <p className="text-sm font-mono text-[#555] text-center">
           Something went wrong. Please close and reopen the app.
         </p>
