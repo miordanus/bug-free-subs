@@ -4,15 +4,17 @@ import { useState } from "react"
 import { Subscription, Owner } from "@/types/subscription"
 import { CURRENCY_SYMBOL } from "@/lib/calculations"
 import { t } from "@/lib/i18n"
+import { displayOwner } from "@/lib/ownerLabels"
 
 type Props = {
   subs: Subscription[]
   funMode: boolean
+  ownerLabels: Record<string, string>
   onEdit: (sub: Subscription) => void
   onDelete: (id: string) => void
 }
 
-function OwnerBadge({ owner }: { owner: Owner }) {
+function OwnerBadge({ owner, ownerLabels }: { owner: Owner; ownerLabels: Record<string, string> }) {
   return (
     <span
       className={`text-[10px] px-2 py-0.5 rounded-full font-mono leading-tight ${
@@ -21,12 +23,12 @@ function OwnerBadge({ owner }: { owner: Owner }) {
           : "bg-[#FF6B9D]/20 text-[#FF6B9D]"
       }`}
     >
-      {owner === "me" ? "Max" : "Molly"}
+      {displayOwner(owner, ownerLabels)}
     </span>
   )
 }
 
-export default function SubscriptionList({ subs, funMode, onEdit, onDelete }: Props) {
+export default function SubscriptionList({ subs, funMode, ownerLabels, onEdit, onDelete }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -91,7 +93,7 @@ export default function SubscriptionList({ subs, funMode, onEdit, onDelete }: Pr
               {/* Bottom row: owner + date + actions */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <OwnerBadge owner={sub.owner} />
+                  <OwnerBadge owner={sub.owner} ownerLabels={ownerLabels} />
                   <span className="text-[11px] text-[#333] font-mono">
                     {sub.nextChargeDate}
                   </span>

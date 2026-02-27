@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Subscription } from "@/types/subscription"
 import { loadSubs } from "@/lib/storage"
 import { detectTelegramEnv, callTelegramReady, getTelegramInitData } from "@/lib/telegram"
 import { t } from "@/lib/i18n"
+import { useHouseholdSettings } from "@/hooks/useHouseholdSettings"
 import BurnSummary from "@/components/BurnSummary"
 import UpcomingList from "@/components/UpcomingList"
 import SubscriptionList from "@/components/SubscriptionList"
@@ -32,6 +34,7 @@ const ENV_MAX_RETRIES = 10
 const ENV_RETRY_MS = 200
 
 export default function Home() {
+  const router = useRouter()
   const [subs, setSubs] = useState<Subscription[]>([])
   const [mounted, setMounted] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -46,6 +49,9 @@ export default function Home() {
   const [tgProfile, setTgProfile] = useState<TgProfile | null>(null)
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [householdName, setHouseholdName] = useState<string | null>(null)
+
+  // Household settings (owner labels etc.)
+  const { ownerLabels } = useHouseholdSettings(tgProfile?.telegram_user_id ?? null)
 
   // Debug state
   const [initDataLength, setInitDataLength] = useState<number | null>(null)
@@ -103,6 +109,7 @@ export default function Home() {
         const profile: TgProfile = await authRes.json()
         setTgProfile(profile)
         const uid = profile.telegram_user_id
+        localStorage.setItem("tg_user_id", String(uid))
 
         // C) Household resolution
         const meRes = await fetch("/api/me", {
@@ -482,6 +489,13 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2 mt-1">
             <button
+              onClick={() => router.push("/settings")}
+              aria-label="Settings"
+              className="text-base border border-[var(--border)] w-9 h-9 flex items-center justify-center rounded-lg hover:border-[#444] transition-colors"
+            >
+              ⚙️
+            </button>
+            <button
               onClick={exportCSV}
               disabled={subs.length === 0}
               className="text-xs font-mono text-[#555] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:border-[#444] transition-colors disabled:opacity-30"
@@ -528,10 +542,11 @@ export default function Home() {
           </div>
         )}
         <BurnSummary subs={subs} funMode={funMode} />
-        <UpcomingList subs={subs} funMode={funMode} />
+        <UpcomingList subs={subs} funMode={funMode} ownerLabels={ownerLabels} />
         <SubscriptionList
           subs={subs}
           funMode={funMode}
+          ownerLabels={ownerLabels}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
@@ -552,6 +567,7 @@ export default function Home() {
         <SubscriptionForm
           initial={editing}
           funMode={funMode}
+          ownerLabels={ownerLabels}
           onSave={handleSave}
           onClose={handleClose}
         />

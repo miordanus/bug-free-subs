@@ -3,10 +3,12 @@
 import { useState } from "react"
 import { Subscription, Currency, BillingCycle, Owner } from "@/types/subscription"
 import { t } from "@/lib/i18n"
+import { displayOwner } from "@/lib/ownerLabels"
 
 type Props = {
   initial: Subscription | null
   funMode: boolean
+  ownerLabels: Record<string, string>
   onSave: (sub: Subscription) => Promise<string | null>
   onClose: () => void
 }
@@ -29,7 +31,7 @@ const INPUT =
 const LABEL =
   "block text-[10px] text-[#555] mb-1.5 uppercase tracking-widest font-mono"
 
-export default function SubscriptionForm({ initial, funMode, onSave, onClose }: Props) {
+export default function SubscriptionForm({ initial, funMode, ownerLabels, onSave, onClose }: Props) {
   const today = new Date().toISOString().split("T")[0]
 
   const [form, setForm] = useState<FormState>({
@@ -223,7 +225,7 @@ export default function SubscriptionForm({ initial, funMode, onSave, onClose }: 
           <div>
             <label className={LABEL}>{t("form.field.owner", funMode)}</label>
             <div className="grid grid-cols-2 gap-2">
-              {([{ label: "Max", value: "me" }, { label: "Molly", value: "wife" }] as const).map(({ label, value }) => (
+              {(["me", "wife"] as const).map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -236,7 +238,7 @@ export default function SubscriptionForm({ initial, funMode, onSave, onClose }: 
                       : "bg-[var(--bg-page)] text-[#555] border-[var(--input-border)] hover:border-[#444]"
                   }`}
                 >
-                  {label}
+                  {displayOwner(value, ownerLabels)}
                 </button>
               ))}
             </div>

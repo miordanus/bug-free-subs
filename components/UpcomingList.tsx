@@ -3,10 +3,12 @@
 import { Subscription, Owner } from "@/types/subscription"
 import { getUpcoming, CURRENCY_SYMBOL } from "@/lib/calculations"
 import { t } from "@/lib/i18n"
+import { displayOwner } from "@/lib/ownerLabels"
 
 type Props = {
   subs: Subscription[]
   funMode: boolean
+  ownerLabels: Record<string, string>
 }
 
 function formatDate(dateStr: string): string {
@@ -16,7 +18,7 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-function OwnerBadge({ owner }: { owner: Owner }) {
+function OwnerBadge({ owner, ownerLabels }: { owner: Owner; ownerLabels: Record<string, string> }) {
   return (
     <span
       className={`text-[10px] px-2 py-0.5 rounded-full font-mono leading-tight ${
@@ -25,12 +27,12 @@ function OwnerBadge({ owner }: { owner: Owner }) {
           : "bg-[#FF6B9D]/20 text-[#FF6B9D]"
       }`}
     >
-      {owner === "me" ? "Max" : "Molly"}
+      {displayOwner(owner, ownerLabels)}
     </span>
   )
 }
 
-export default function UpcomingList({ subs, funMode }: Props) {
+export default function UpcomingList({ subs, funMode, ownerLabels }: Props) {
   const upcoming = getUpcoming(subs)
 
   return (
@@ -63,7 +65,7 @@ export default function UpcomingList({ subs, funMode }: Props) {
                   {sub.name}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <OwnerBadge owner={sub.owner} />
+                  <OwnerBadge owner={sub.owner} ownerLabels={ownerLabels} />
                   {sub.category ? (
                     <span className="text-[10px] text-[#444] font-mono truncate">
                       {sub.category}
