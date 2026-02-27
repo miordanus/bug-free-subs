@@ -48,6 +48,7 @@ export default function Home() {
   // Debug state
   const [initDataLength, setInitDataLength] = useState<number | null>(null)
   const [lastAuthHttpStatus, setLastAuthHttpStatus] = useState<number | null>(null)
+  const [showDebug, setShowDebug] = useState(false)
 
   // localStorage import
   const [localImportReady, setLocalImportReady] = useState(false)
@@ -291,27 +292,39 @@ export default function Home() {
   const urlSearchHasTg = new URLSearchParams(location.search).has("tgWebAppData")
   const urlHashHasTg = new URLSearchParams(location.hash.slice(1)).has("tgWebAppData")
   const debugFooter = (
-    <div className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95 border-t border-[#1F1F1F] px-2 py-1.5 z-50 space-y-0.5">
-      <p className="text-[9px] font-mono text-[#444] break-all">
-        env:{envState}
-        {" · "}hasWindow:true
-        {" · "}hasTg:{String(!!w.Telegram)}
-        {" · "}hasWebApp:{String(!!w.Telegram?.WebApp)}
-        {" · "}hasProxy:{String(!!w.TelegramWebviewProxy)}
-        {" · "}webAppInitDataLen:{w.Telegram?.WebApp?.initData?.length ?? 0}
-      </p>
-      <p className="text-[9px] font-mono text-[#444] break-all">
-        urlSearch:{String(urlSearchHasTg)}
-        {" · "}urlHash:{String(urlHashHasTg)}
-        {" · "}usedInitDataLen:{initDataLength ?? "?"}
-        {" · "}auth:{authStatus}
-        {" · "}http:{lastAuthHttpStatus ?? "-"}
-        {(householdName ?? householdId) ? ` · hh:${householdName ?? householdId}` : ""}
-      </p>
-      <p className="text-[9px] font-mono text-[#3a3a3a] break-all">href:{location.href.slice(0, 120)}</p>
-      <p className="text-[9px] font-mono text-[#3a3a3a] break-all">search:{location.search.slice(0, 120) || "(empty)"}</p>
-      <p className="text-[9px] font-mono text-[#3a3a3a] break-all">hash:{location.hash.slice(0, 120) || "(empty)"}</p>
-      <p className="text-[9px] font-mono text-[#3a3a3a] break-all">ua:{navigator.userAgent.slice(0, 80)}</p>
+    <div className="fixed bottom-0 left-0 right-0 z-50">
+      {showDebug && (
+        <div className="bg-[#0A0A0A]/95 border-t border-[#1F1F1F] px-2 py-1.5 space-y-0.5">
+          <p className="text-[9px] font-mono text-[#444] break-all">
+            env:{envState}
+            {" · "}hasWindow:true
+            {" · "}hasTg:{String(!!w.Telegram)}
+            {" · "}hasWebApp:{String(!!w.Telegram?.WebApp)}
+            {" · "}hasProxy:{String(!!w.TelegramWebviewProxy)}
+            {" · "}webAppInitDataLen:{w.Telegram?.WebApp?.initData?.length ?? 0}
+          </p>
+          <p className="text-[9px] font-mono text-[#444] break-all">
+            urlSearch:{String(urlSearchHasTg)}
+            {" · "}urlHash:{String(urlHashHasTg)}
+            {" · "}usedInitDataLen:{initDataLength ?? "?"}
+            {" · "}auth:{authStatus}
+            {" · "}http:{lastAuthHttpStatus ?? "-"}
+            {(householdName ?? householdId) ? ` · hh:${householdName ?? householdId}` : ""}
+          </p>
+          <p className="text-[9px] font-mono text-[#3a3a3a] break-all">href:{location.href.slice(0, 120)}</p>
+          <p className="text-[9px] font-mono text-[#3a3a3a] break-all">search:{location.search.slice(0, 120) || "(empty)"}</p>
+          <p className="text-[9px] font-mono text-[#3a3a3a] break-all">hash:{location.hash.slice(0, 120) || "(empty)"}</p>
+          <p className="text-[9px] font-mono text-[#3a3a3a] break-all">ua:{navigator.userAgent.slice(0, 80)}</p>
+        </div>
+      )}
+      <div className="flex justify-end bg-[#0A0A0A]/80 border-t border-[#1a1a1a] px-2 py-0.5">
+        <button
+          onClick={() => setShowDebug((v) => !v)}
+          className="text-[9px] font-mono text-[#333] hover:text-[#555] transition-colors"
+        >
+          {showDebug ? "▼ dbg" : "▲ dbg"}
+        </button>
+      </div>
     </div>
   )
 
