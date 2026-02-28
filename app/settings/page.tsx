@@ -68,13 +68,15 @@ function OwnerForm({
 
 export default function SettingsPage() {
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true)
     const stored = localStorage.getItem("tg_user_id")
     if (!stored) return
     const parsed = parseInt(stored, 10)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!isNaN(parsed)) setTelegramUserId(parsed)
   }, [])
 
@@ -82,6 +84,11 @@ export default function SettingsPage() {
 
   // key changes when server data loads (different from defaults), forcing OwnerForm to remount
   const formKey = `${ownerLabels.me}:${ownerLabels.wife}`
+
+  // Prevent SSR / first-paint from showing "wrong context" message
+  if (!mounted) {
+    return <div className="min-h-screen bg-[var(--bg-page)]" />
+  }
 
   if (!telegramUserId) {
     return (

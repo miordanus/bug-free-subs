@@ -43,9 +43,21 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (insertErr) {
-      return NextResponse.json({ error: insertErr.message }, { status: 500 })
+      if (insertErr.code === "23505") {
+        // Race condition: another concurrent request inserted the row first — fetch it
+        const { data: raced, error: raceErr } = await supabase
+          .from("household_settings")
+          .select("*")
+          .eq("household_id", householdId)
+          .single()
+        if (raceErr) return NextResponse.json({ error: raceErr.message }, { status: 500 })
+        data = raced
+      } else {
+        return NextResponse.json({ error: insertErr.message }, { status: 500 })
+      }
+    } else {
+      data = inserted
     }
-    data = inserted
   }
 
   return NextResponse.json({
