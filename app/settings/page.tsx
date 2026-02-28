@@ -72,7 +72,6 @@ export default function SettingsPage() {
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
     const stored = localStorage.getItem("tg_user_id")
     if (!stored) return
@@ -81,9 +80,38 @@ export default function SettingsPage() {
   }, [])
 
   const { ownerLabels, updateOwnerLabels } = useHouseholdSettings(telegramUserId)
+  const [exporting, setExporting] = useState(false)
 
   // key changes when server data loads (different from defaults), forcing OwnerForm to remount
   const formKey = `${ownerLabels.me}:${ownerLabels.wife}`
+
+  async function exportCSV() {
+    if (!telegramUserId) return
+    setExporting(true)
+    try {
+      const res = await fetch("/api/subscriptions", {
+        headers: { "x-telegram-user-id": String(telegramUserId) },
+      })
+      if (!res.ok) return
+      const subs = await res.json()
+      const headers = ["Name", "Amount", "Currency", "Billing Cycle", "Next Charge", "Category", "Card", "Owner"]
+      const rows = subs.map((s: Record<string, unknown>) => [
+        s.name, s.amount, s.currency, s.billingCycle, s.nextChargeDate, s.category, s.card, s.owner,
+      ])
+      const csv = [headers, ...rows]
+        .map((r: unknown[]) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+        .join("\n")
+      const blob = new Blob([csv], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `subscriptions-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // Prevent SSR / first-paint from showing "wrong context" message
   if (!mounted) {
@@ -136,6 +164,18 @@ export default function SettingsPage() {
             defaultWife={ownerLabels.wife ?? "Molly"}
             onSave={updateOwnerLabels}
           />
+        </div>
+
+        {/* Export */}
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-5 space-y-3">
+          <p className="text-xs text-[#555] uppercase tracking-widest font-mono">Data</p>
+          <button
+            onClick={exportCSV}
+            disabled={exporting}
+            className="w-full text-sm font-mono text-[#555] border border-[var(--border)] py-3 rounded-lg hover:border-[#444] transition-colors disabled:opacity-40"
+          >
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
         </div>
       </main>
     </div>

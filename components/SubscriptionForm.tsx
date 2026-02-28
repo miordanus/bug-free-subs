@@ -225,22 +225,31 @@ export default function SubscriptionForm({ initial, funMode, ownerLabels, onSave
           <div>
             <label className={LABEL}>{t("form.field.owner", funMode)}</label>
             <div className="grid grid-cols-2 gap-2">
-              {(["me", "wife"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => set("owner", value)}
-                  className={`py-3 text-xs font-mono uppercase tracking-wider rounded-lg border transition-colors ${
-                    form.owner === value
-                      ? value === "me"
-                        ? "bg-white text-black border-white"
-                        : "bg-[#FF6B9D] text-black border-[#FF6B9D]"
-                      : "bg-[var(--bg-page)] text-[#555] border-[var(--input-border)] hover:border-[#444]"
-                  }`}
-                >
-                  {displayOwner(value, ownerLabels)}
-                </button>
-              ))}
+              {(["me", "wife"] as const).map((value) => {
+                const isSelected = form.owner === value
+                const dotColor = value === "me" ? "bg-white" : "bg-[#FF6B9D]"
+                const selectedCls =
+                  value === "me"
+                    ? "bg-white/10 border-white/50 text-[var(--text)]"
+                    : "bg-[#FF6B9D]/15 border-[#FF6B9D] text-[var(--text)]"
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => set("owner", value)}
+                    className={`py-3 text-sm rounded-lg border transition-colors flex items-center justify-center gap-2 ${
+                      isSelected
+                        ? selectedCls
+                        : "bg-[var(--bg-page)] text-[#555] border-[var(--input-border)] hover:border-[#444]"
+                    }`}
+                  >
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isSelected ? dotColor : "bg-[#333]"}`}
+                    />
+                    {displayOwner(value, ownerLabels)}
+                  </button>
+                )
+              })}
             </div>
             {errors.owner && (
               <p className="text-red-400 text-xs mt-1 font-mono">{errors.owner}</p>

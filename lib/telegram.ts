@@ -65,6 +65,10 @@ export function getTelegramInitData(): string {
     return result
   }
 
+  // 4. localStorage cache (populated on first successful retrieval above)
+  const cached = localStorage.getItem("tg_initData_v1")
+  if (cached) return cached
+
   return ""
 }
 
