@@ -285,23 +285,6 @@ export default function Home() {
     localStorage.setItem("funMode", String(next))
   }
 
-  function exportCSV() {
-    const headers = ["Name", "Amount", "Currency", "Billing Cycle", "Next Charge", "Category", "Card", "Owner"]
-    const rows = subs.map((s) => [
-      s.name, s.amount, s.currency, s.billingCycle, s.nextChargeDate, s.category, s.card, s.owner,
-    ])
-    const csv = [headers, ...rows]
-      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
-      .join("\n")
-    const blob = new Blob([csv], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `subscriptions-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   function handleAdd() { setEditing(null); setModalOpen(true) }
   function handleEdit(sub: Subscription) { setEditing(sub); setModalOpen(true) }
   function handleClose() { setModalOpen(false); setEditing(null) }
@@ -494,13 +477,6 @@ export default function Home() {
               className="text-base border border-[var(--border)] w-9 h-9 flex items-center justify-center rounded-lg hover:border-[#444] transition-colors"
             >
               ⚙️
-            </button>
-            <button
-              onClick={exportCSV}
-              disabled={subs.length === 0}
-              className="text-xs font-mono text-[#555] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:border-[#444] transition-colors disabled:opacity-30"
-            >
-              {t("btn.exportCsv", funMode)}
             </button>
             <button
               onClick={toggleFunMode}
